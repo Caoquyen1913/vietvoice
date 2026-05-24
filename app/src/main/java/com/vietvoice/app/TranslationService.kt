@@ -73,13 +73,14 @@ class TranslationService : Service() {
                 sendStatus("⏳ Đang chờ quyền bắt âm thanh...")
             }
             ACTION_START_PIPELINE -> {
-                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, -1)
+                // RESULT_OK = -1 trong Android — dùng Int.MIN_VALUE làm sentinel thay vì -1
+                val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
                 val resultData: Intent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
                 } else {
                     @Suppress("DEPRECATION") intent.getParcelableExtra(EXTRA_RESULT_DATA)
                 }
-                if (resultCode != -1 && resultData != null) {
+                if (resultCode == android.app.Activity.RESULT_OK && resultData != null) {
                     startPipeline(resultCode, resultData)
                 } else {
                     showToast("Lỗi: không lấy được quyền bắt âm thanh")
