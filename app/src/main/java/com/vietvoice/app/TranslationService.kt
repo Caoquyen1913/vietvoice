@@ -118,7 +118,14 @@ class TranslationService : Service() {
         upgradeForegroundForMediaProjection("⬇️ Đang tải model dịch ZH→VI...")
         sendStatus("⬇️ Đang tải model dịch ZH→VI...")
 
-        ttsManager = TtsManager(this)
+        ttsManager = TtsManager(this).also { tts ->
+            tts.onLanguageUnavailable = {
+                val msg = "⚠️ Chưa có giọng tiếng Việt. Đang mở cài đặt TTS — cài \"Vietnamese\" rồi khởi động lại app."
+                sendStatus(msg)
+                showToast(msg)
+                TtsManager.openTtsSettings(applicationContext)
+            }
+        }
         translatorManager = TranslatorManager()
         voskTranscriber = VoskTranscriber(ModelDownloader.getModelPath(this))
 
