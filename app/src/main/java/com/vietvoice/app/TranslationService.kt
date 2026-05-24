@@ -20,7 +20,7 @@ import com.vietvoice.app.model.ModelDownloader
 import com.vietvoice.app.overlay.OverlayController
 import com.vietvoice.app.stt.VoskTranscriber
 import com.vietvoice.app.translate.TranslatorManager
-import com.vietvoice.app.tts.TtsManager
+import com.vietvoice.app.tts.SherpaTtsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,7 +53,7 @@ class TranslationService : Service() {
     private var audioCaptureManager: AudioCaptureManager? = null
     private var voskTranscriber: VoskTranscriber? = null
     private var translatorManager: TranslatorManager? = null
-    private var ttsManager: TtsManager? = null
+    private var ttsManager: SherpaTtsManager? = null
     private var overlayController: OverlayController? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -118,12 +118,9 @@ class TranslationService : Service() {
         upgradeForegroundForMediaProjection("⬇️ Đang tải model dịch ZH→VI...")
         sendStatus("⬇️ Đang tải model dịch ZH→VI...")
 
-        ttsManager = TtsManager(this).also { tts ->
-            tts.onLanguageUnavailable = {
-                val msg = "⚠️ Chưa có giọng tiếng Việt. Đang mở cài đặt TTS — cài \"Vietnamese\" rồi khởi động lại app."
-                sendStatus(msg)
-                showToast(msg)
-                TtsManager.openTtsSettings(applicationContext)
+        ttsManager = SherpaTtsManager(ModelDownloader.getTtsModelPath(this)).also { tts ->
+            if (!ModelDownloader.isTtsModelDownloaded(this)) {
+                sendStatus("⚠️ Chưa tải giọng đọc tiếng Việt. Vào app → Tải giọng đọc (~21MB).")
             }
         }
         translatorManager = TranslatorManager()

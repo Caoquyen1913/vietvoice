@@ -30,6 +30,58 @@
         android:layout_height="wrap_content"
         app:cardCornerRadius="12dp"
         app:cardElevation="4dp"
+        android:layout_marginBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Giọng đọc tiếng Việt (offline)"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/on_surface"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tv_tts_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚠️ Chưa tải giọng đọc (~21MB)"
+                android:textSize="13sp"
+                android:textColor="@color/subtitle"
+                android:layout_marginBottom="12dp" />
+
+            <ProgressBar
+                android:id="@+id/progress_bar_tts"
+                style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:visibility="gone"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_download_tts"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⬇ Tải giọng đọc"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/primary" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <androidx.cardview.widget.CardView
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
         android:layout_marginBottom="16dp">
 
         <LinearLayout

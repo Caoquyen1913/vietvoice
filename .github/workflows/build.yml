@@ -36,6 +36,12 @@ jobs:
       - name: Set SDK path in local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
+      - name: Download sherpa-onnx AAR (offline TTS engine)
+        run: |
+          mkdir -p app/libs
+          curl -L -o app/libs/sherpa-onnx-1.13.2.aar \
+            https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.2/sherpa-onnx-1.13.2.aar
+
       - name: Build debug APK
         run: gradle assembleDebug
 

@@ -31,28 +31,22 @@ class MainActivity : AppCompatActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        if (results.all { it.value }) {
-            prepareAndRequestProjection()
-        } else {
-            toast("❌ Cần cấp đầy đủ quyền để app hoạt động")
-        }
+        if (results.all { it.value }) prepareAndRequestProjection()
+        else toast("❌ Cần cấp đầy đủ quyền để app hoạt động")
     }
 
     private val mediaProjectionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == RESULT_OK && result.data != null) {
-            // Service đã chạy foreground rồi, giờ truyền projection data vào
-            val intent = Intent(this, TranslationService::class.java).apply {
+            startService(Intent(this, TranslationService::class.java).apply {
                 action = TranslationService.ACTION_START_PIPELINE
                 putExtra(TranslationService.EXTRA_RESULT_CODE, result.resultCode)
                 putExtra(TranslationService.EXTRA_RESULT_DATA, result.data)
-            }
-            startService(intent)
+            })
             isServiceRunning = true
             binding.btnStartStop.text = "⏹ Dừng"
         } else {
-            // User từ chối → dừng service đã prepare
             startService(Intent(this, TranslationService::class.java).apply {
                 action = TranslationService.ACTION_STOP
             })
@@ -64,9 +58,9 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 TranslationService.ACTION_TRANSCRIPT -> {
-                    val original = intent.getStringExtra("original") ?: return
+                    val original   = intent.getStringExtra("original") ?: return
                     val translated = intent.getStringExtra("translated") ?: ""
-                    binding.tvOriginal.text = "🇨🇳 $original"
+                    binding.tvOriginal.text   = "🇨🇳 $original"
                     binding.tvTranslated.text = "🇻🇳 $translated"
                 }
                 TranslationService.ACTION_STATUS -> {
@@ -102,7 +96,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
-        binding.btnDownloadModel.setOnClickListener { startModelDownload() }
+        binding.btnDownloadModel.setOnClickListener { startVoskDownload() }
+        binding.btnDownloadTts.setOnClickListener   { startTtsDownload() }
 
         binding.btnStartStop.setOnClickListener {
             if (isServiceRunning) stopTranslation() else checkAndStart()
@@ -116,30 +111,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateModelStatus() {
-        val ok = ModelDownloader.isModelDownloaded(this)
-        binding.tvModelStatus.text = if (ok) "✅ Model tiếng Trung đã sẵn sàng"
+        val voskOk = ModelDownloader.isModelDownloaded(this)
+        val ttsOk  = ModelDownloader.isTtsModelDownloaded(this)
+
+        binding.tvModelStatus.text = if (voskOk) "✅ Model tiếng Trung đã sẵn sàng"
                                      else "⚠️ Chưa tải model nhận dạng (~42MB)"
-        binding.btnDownloadModel.isEnabled = !ok
-        binding.btnStartStop.isEnabled = ok
-        if (!ok) binding.tvStatus.text = "Vui lòng tải model trước"
+        binding.btnDownloadModel.isEnabled = !voskOk
+
+        binding.tvTtsStatus.text = if (ttsOk) "✅ Giọng đọc tiếng Việt đã sẵn sàng"
+                                   else "⚠️ Chưa tải giọng đọc (~21MB)"
+        binding.btnDownloadTts.isEnabled = !ttsOk
+
+        val bothReady = voskOk && ttsOk
+        binding.btnStartStop.isEnabled = bothReady
+        if (!bothReady) binding.tvStatus.text = when {
+            !voskOk && !ttsOk -> "Vui lòng tải cả hai model"
+            !voskOk           -> "Vui lòng tải model nhận dạng"
+            else              -> "Vui lòng tải giọng đọc tiếng Việt"
+        }
     }
 
-    private fun startModelDownload() {
+    private fun startVoskDownload() {
         binding.btnDownloadModel.isEnabled = false
         binding.progressBar.visibility = View.VISIBLE
-        binding.tvModelStatus.text = "Đang tải model..."
+        binding.tvModelStatus.text = "Đang tải model nhận dạng..."
 
         ModelDownloader.download(this) { progress, error ->
             runOnUiThread {
                 if (error != null) {
-                    binding.tvModelStatus.text = "❌ Lỗi tải: ${error.message}"
+                    binding.tvModelStatus.text = "❌ Lỗi: ${error.message}"
                     binding.btnDownloadModel.isEnabled = true
                     binding.progressBar.visibility = View.GONE
                     toast("Lỗi tải model. Kiểm tra kết nối mạng.")
                 } else if (progress == 100) {
                     binding.progressBar.visibility = View.GONE
                     updateModelStatus()
-                    toast("✅ Tải model xong!")
+                    toast("✅ Tải model nhận dạng xong!")
                 } else {
                     binding.progressBar.progress = progress
                     binding.tvModelStatus.text = "Đang tải: $progress%"
@@ -148,9 +155,33 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun startTtsDownload() {
+        binding.btnDownloadTts.isEnabled = false
+        binding.progressBarTts.visibility = View.VISIBLE
+        binding.tvTtsStatus.text = "Đang tải giọng đọc..."
+
+        ModelDownloader.downloadTts(this) { progress, error ->
+            runOnUiThread {
+                if (error != null) {
+                    binding.tvTtsStatus.text = "❌ Lỗi: ${error.message}"
+                    binding.btnDownloadTts.isEnabled = true
+                    binding.progressBarTts.visibility = View.GONE
+                    toast("Lỗi tải giọng đọc. Kiểm tra kết nối mạng.")
+                } else if (progress == 100) {
+                    binding.progressBarTts.visibility = View.GONE
+                    updateModelStatus()
+                    toast("✅ Tải giọng đọc xong!")
+                } else {
+                    binding.progressBarTts.progress = progress
+                    binding.tvTtsStatus.text = "Đang tải: $progress%"
+                }
+            }
+        }
+    }
+
     private fun checkAndStart() {
-        if (!ModelDownloader.isModelDownloaded(this)) {
-            toast("Vui lòng tải model trước")
+        if (!ModelDownloader.isModelDownloaded(this) || !ModelDownloader.isTtsModelDownloaded(this)) {
+            toast("Vui lòng tải đủ cả hai model trước")
             return
         }
         if (!Settings.canDrawOverlays(this)) {
@@ -171,13 +202,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun prepareAndRequestProjection() {
-        // Android 14+: service phải vào foreground TRƯỚC khi hỏi quyền MediaProjection
         binding.tvStatus.text = "Đang khởi động service..."
         ContextCompat.startForegroundService(this,
             Intent(this, TranslationService::class.java).apply {
                 action = TranslationService.ACTION_PREPARE
             })
-        // Đợi 400ms để service kịp gọi startForeground rồi mới mở dialog
         Handler(Looper.getMainLooper()).postDelayed({
             mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
         }, 400)
@@ -189,11 +218,10 @@ class MainActivity : AppCompatActivity() {
         })
         isServiceRunning = false
         binding.btnStartStop.text = "▶ Bắt đầu"
-        binding.tvOriginal.text = ""
+        binding.tvOriginal.text   = ""
         binding.tvTranslated.text = ""
-        binding.tvStatus.text = "Đã dừng"
+        binding.tvStatus.text     = "Đã dừng"
     }
 
-    private fun toast(msg: String) =
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 }
