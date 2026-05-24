@@ -113,8 +113,9 @@ class TranslationService : Service() {
     }
 
     private fun startPipeline(resultCode: Int, resultData: Intent) {
+        // Android 14+: upgrade foreground type sang MEDIA_PROJECTION (bây giờ mới có token hợp lệ)
+        upgradeForegroundForMediaProjection("⬇️ Đang tải model dịch ZH→VI...")
         sendStatus("⬇️ Đang tải model dịch ZH→VI...")
-        updateNotification("⬇️ Đang tải model dịch ZH→VI...")
 
         ttsManager = TtsManager(this)
         translatorManager = TranslatorManager()
@@ -228,10 +229,23 @@ class TranslationService : Service() {
     private fun startForegroundCompat(text: String = "VietVoice đang chạy") {
         val notification = buildNotification(text)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Android 14+: PHẢI dùng MICROPHONE lúc này vì chưa có MediaProjection token.
+            // MEDIA_PROJECTION type sẽ được thêm vào trong startPipeline() sau khi nhận token.
             startForeground(NOTIFICATION_ID, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
         } else {
             startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
+    // Gọi ngay đầu startPipeline() — lúc này đã có MediaProjection token hợp lệ
+    private fun upgradeForegroundForMediaProjection(text: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Gọi startForeground lần 2 với MEDIA_PROJECTION type (additive — không thay thế MICROPHONE)
+            startForeground(NOTIFICATION_ID, buildNotification(text),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        } else {
+            updateNotification(text)
         }
     }
 
