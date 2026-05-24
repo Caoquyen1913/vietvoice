@@ -10,6 +10,8 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.View
 import android.widget.Toast
@@ -30,9 +32,9 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         if (results.all { it.value }) {
-            requestMediaProjection()
+            prepareAndRequestProjection()
         } else {
-            Toast.makeText(this, "Cần cấp đầy đủ quyền để app hoạt động", Toast.LENGTH_LONG).show()
+            toast("❌ Cần cấp đầy đủ quyền để app hoạt động")
         }
     }
 
@@ -40,18 +42,38 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == RESULT_OK && result.data != null) {
-            launchService(result.resultCode, result.data!!)
+            // Service đã chạy foreground rồi, giờ truyền projection data vào
+            val intent = Intent(this, TranslationService::class.java).apply {
+                action = TranslationService.ACTION_START_PIPELINE
+                putExtra(TranslationService.EXTRA_RESULT_CODE, result.resultCode)
+                putExtra(TranslationService.EXTRA_RESULT_DATA, result.data)
+            }
+            startService(intent)
+            isServiceRunning = true
+            binding.btnStartStop.text = "⏹ Dừng"
         } else {
-            Toast.makeText(this, "Cần cho phép bắt âm thanh hệ thống", Toast.LENGTH_LONG).show()
+            // User từ chối → dừng service đã prepare
+            startService(Intent(this, TranslationService::class.java).apply {
+                action = TranslationService.ACTION_STOP
+            })
+            toast("⚠️ Cần cho phép bắt âm thanh hệ thống")
         }
     }
 
-    private val transcriptReceiver = object : BroadcastReceiver() {
+    private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val original = intent.getStringExtra("original") ?: return
-            val translated = intent.getStringExtra("translated") ?: ""
-            binding.tvOriginal.text = "🇨🇳 $original"
-            binding.tvTranslated.text = "🇻🇳 $translated"
+            when (intent.action) {
+                TranslationService.ACTION_TRANSCRIPT -> {
+                    val original = intent.getStringExtra("original") ?: return
+                    val translated = intent.getStringExtra("translated") ?: ""
+                    binding.tvOriginal.text = "🇨🇳 $original"
+                    binding.tvTranslated.text = "🇻🇳 $translated"
+                }
+                TranslationService.ACTION_STATUS -> {
+                    val msg = intent.getStringExtra("message") ?: return
+                    binding.tvStatus.text = msg
+                }
+            }
         }
     }
 
@@ -59,16 +81,14 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-
         updateModelStatus()
         setupButtons()
-
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            transcriptReceiver,
-            IntentFilter(TranslationService.ACTION_TRANSCRIPT)
-        )
+        val filter = IntentFilter().apply {
+            addAction(TranslationService.ACTION_TRANSCRIPT)
+            addAction(TranslationService.ACTION_STATUS)
+        }
+        LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, filter)
     }
 
     override fun onResume() {
@@ -78,14 +98,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(transcriptReceiver)
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(statusReceiver)
     }
 
     private fun setupButtons() {
         binding.btnDownloadModel.setOnClickListener { startModelDownload() }
 
         binding.btnStartStop.setOnClickListener {
-            if (isServiceRunning) stopService() else checkAndStart()
+            if (isServiceRunning) stopTranslation() else checkAndStart()
         }
 
         binding.switchTranscript.setOnCheckedChangeListener { _, checked ->
@@ -96,11 +116,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateModelStatus() {
-        val downloaded = ModelDownloader.isModelDownloaded(this)
-        binding.tvModelStatus.text = if (downloaded) "✅ Model tiếng Trung đã sẵn sàng"
-                                     else "⚠️ Chưa tải model tiếng Trung (~42MB)"
-        binding.btnDownloadModel.isEnabled = !downloaded
-        binding.btnStartStop.isEnabled = downloaded
+        val ok = ModelDownloader.isModelDownloaded(this)
+        binding.tvModelStatus.text = if (ok) "✅ Model tiếng Trung đã sẵn sàng"
+                                     else "⚠️ Chưa tải model nhận dạng (~42MB)"
+        binding.btnDownloadModel.isEnabled = !ok
+        binding.btnStartStop.isEnabled = ok
+        if (!ok) binding.tvStatus.text = "Vui lòng tải model trước"
     }
 
     private fun startModelDownload() {
@@ -111,12 +132,14 @@ class MainActivity : AppCompatActivity() {
         ModelDownloader.download(this) { progress, error ->
             runOnUiThread {
                 if (error != null) {
-                    binding.tvModelStatus.text = "❌ Lỗi: ${error.message}"
+                    binding.tvModelStatus.text = "❌ Lỗi tải: ${error.message}"
                     binding.btnDownloadModel.isEnabled = true
                     binding.progressBar.visibility = View.GONE
+                    toast("Lỗi tải model. Kiểm tra kết nối mạng.")
                 } else if (progress == 100) {
                     binding.progressBar.visibility = View.GONE
                     updateModelStatus()
+                    toast("✅ Tải model xong!")
                 } else {
                     binding.progressBar.progress = progress
                     binding.tvModelStatus.text = "Đang tải: $progress%"
@@ -126,41 +149,41 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkAndStart() {
-        if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Cần quyền 'Hiển thị trên ứng dụng khác'", Toast.LENGTH_LONG).show()
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+        if (!ModelDownloader.isModelDownloaded(this)) {
+            toast("Vui lòng tải model trước")
             return
         }
-
-        val needed = mutableListOf(Manifest.permission.RECORD_AUDIO)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            needed.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (!Settings.canDrawOverlays(this)) {
+            toast("Cần quyền 'Hiển thị trên ứng dụng khác' — đang mở Settings...")
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")))
+            return
         }
-
+        val needed = mutableListOf(Manifest.permission.RECORD_AUDIO).also {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                it.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
         val missing = needed.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-
-        if (missing.isEmpty()) requestMediaProjection()
+        if (missing.isEmpty()) prepareAndRequestProjection()
         else permissionLauncher.launch(missing.toTypedArray())
     }
 
-    private fun requestMediaProjection() {
-        mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+    private fun prepareAndRequestProjection() {
+        // Android 14+: service phải vào foreground TRƯỚC khi hỏi quyền MediaProjection
+        binding.tvStatus.text = "Đang khởi động service..."
+        ContextCompat.startForegroundService(this,
+            Intent(this, TranslationService::class.java).apply {
+                action = TranslationService.ACTION_PREPARE
+            })
+        // Đợi 400ms để service kịp gọi startForeground rồi mới mở dialog
+        Handler(Looper.getMainLooper()).postDelayed({
+            mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+        }, 400)
     }
 
-    private fun launchService(resultCode: Int, data: Intent) {
-        val intent = Intent(this, TranslationService::class.java).apply {
-            action = TranslationService.ACTION_START
-            putExtra(TranslationService.EXTRA_RESULT_CODE, resultCode)
-            putExtra(TranslationService.EXTRA_RESULT_DATA, data)
-        }
-        ContextCompat.startForegroundService(this, intent)
-        isServiceRunning = true
-        binding.btnStartStop.text = "⏹ Dừng"
-    }
-
-    private fun stopService() {
+    private fun stopTranslation() {
         startService(Intent(this, TranslationService::class.java).apply {
             action = TranslationService.ACTION_STOP
         })
@@ -168,5 +191,9 @@ class MainActivity : AppCompatActivity() {
         binding.btnStartStop.text = "▶ Bắt đầu"
         binding.tvOriginal.text = ""
         binding.tvTranslated.text = ""
+        binding.tvStatus.text = "Đã dừng"
     }
+
+    private fun toast(msg: String) =
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 }

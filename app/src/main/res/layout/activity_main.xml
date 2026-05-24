@@ -108,7 +108,17 @@
                 android:textColor="#FFFFFF"
                 android:backgroundTint="@color/green"
                 android:enabled="false"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Vui lòng tải model trước"
+                android:textSize="12sp"
+                android:textColor="@color/subtitle"
+                android:layout_marginBottom="16dp"
+                android:gravity="center" />
 
             <LinearLayout
                 android:layout_width="match_parent"
