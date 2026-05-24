@@ -131,6 +131,12 @@ class TranslationService : Service() {
 
         translatorManager!!.downloadModelIfNeeded(
             onReady = {
+                // Nếu isReady=false → ML Kit không download được (server bị chặn / không mạng)
+                if (translatorManager?.isReady == false) {
+                    val warn = "⚠️ Không tải được model dịch (cần mạng/VPN). Vẫn chạy nhận dạng tiếng Trung."
+                    sendStatus(warn)
+                    showToast(warn)
+                }
                 sendStatus("⬇️ Đang tải model nhận dạng giọng nói...")
                 updateNotification("⬇️ Đang load Vosk model...")
                 serviceScope.launch {
@@ -175,10 +181,14 @@ class TranslationService : Service() {
                     try {
                         capture.start()
                         overlayController?.isRunning = true
-                        val readyMsg = "✅ Sẵn sàng! Đang dịch tiếng Trung..."
+                        val canTranslate = translatorManager?.isReady == true
+                        val readyMsg = if (canTranslate)
+                            "✅ Sẵn sàng! Đang nhận dạng + dịch tiếng Trung..."
+                        else
+                            "⚠️ Đang nhận dạng tiếng Trung (chỉ hiện chữ, không có bản dịch)"
                         sendStatus(readyMsg)
                         updateNotification(readyMsg)
-                        showToast("VietVoice đang dịch ✅")
+                        showToast(if (canTranslate) "VietVoice đang dịch ✅" else "VietVoice đang nhận dạng (không dịch) ⚠️")
                     } catch (e: Exception) {
                         Log.e(TAG, "Audio capture failed", e)
                         val errMsg = "❌ Không bắt được âm thanh: ${e.message}"
@@ -187,12 +197,7 @@ class TranslationService : Service() {
                     }
                 }
             },
-            onError = { e ->
-                val msg = "❌ Tải model dịch thất bại: ${e.message}"
-                sendStatus(msg)
-                showToast(msg)
-                Log.e(TAG, "ML Kit download failed", e)
-            }
+            onError = { _ -> /* TranslatorManager không còn gọi onError — xử lý nội bộ */ }
         )
     }
 

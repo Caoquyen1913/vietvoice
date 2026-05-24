@@ -14,12 +14,24 @@ class TtsManager(private val context: Context) {
     companion object {
         private const val TAG = "TtsManager"
         private const val UTTERANCE_ID = "vietvoice_tts"
+
+        /** Mở màn hình cài TTS data — gọi khi onLanguageUnavailable */
+        fun openTtsSettings(context: Context) {
+            try {
+                context.startActivity(
+                    Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Cannot open TTS install screen", e)
+            }
+        }
     }
 
     var onSpeakStart: (() -> Unit)? = null
     var onSpeakDone: (() -> Unit)? = null
 
-    /** Gọi khi tiếng Việt TTS chưa được cài — dùng để nhắc user cài TTS data */
+    /** Gọi khi không tìm được engine nào đọc được tiếng Việt */
     var onLanguageUnavailable: (() -> Unit)? = null
 
     val isSpeaking = AtomicBoolean(false)
@@ -30,14 +42,15 @@ class TtsManager(private val context: Context) {
     init {
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                val ready = setupVietnamese()
-                if (!ready) {
-                    Log.e(TAG, "Vietnamese TTS not available — notifying user")
+                if (setupVietnamese()) {
+                    tts.setSpeechRate(1.1f)
+                } else {
+                    Log.e(TAG, "No Vietnamese TTS found on this device")
                     onLanguageUnavailable?.invoke()
                 }
-                tts.setSpeechRate(1.1f)
             } else {
-                Log.e(TAG, "TTS initialization failed: $status")
+                Log.e(TAG, "TTS init failed: $status")
+                onLanguageUnavailable?.invoke()
             }
         }
 
@@ -59,50 +72,42 @@ class TtsManager(private val context: Context) {
     }
 
     /**
-     * Thử set ngôn ngữ tiếng Việt theo thứ tự ưu tiên:
-     *   1. vi-VN  2. vi  → trả về true nếu set được
+     * Thử set ngôn ngữ tiếng Việt — vi-VN trước, rồi vi.
+     * Trả về true nếu thành công.
      */
     private fun setupVietnamese(): Boolean {
         val locales = listOf(Locale("vi", "VN"), Locale("vi"))
         for (locale in locales) {
             val result = tts.setLanguage(locale)
             if (result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED) {
-                Log.d(TAG, "Vietnamese TTS ready with locale: $locale")
+                Log.d(TAG, "Vietnamese TTS OK: engine=${tts.defaultEngine} locale=$locale")
                 isReady = true
                 return true
             }
+            Log.w(TAG, "setLanguage($locale) result=$result")
         }
+        // Log tất cả engine có trên máy để debug
+        Log.w(TAG, "Available TTS engines: ${tts.engines.joinToString { it.name }}")
         return false
     }
 
+    /** Đọc text. Nếu TTS tiếng Việt không có thì bỏ qua — vẫn hiển thị overlay. */
     fun speak(text: String) {
         if (!isReady || text.isBlank()) return
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), UTTERANCE_ID)
     }
 
     fun stop() {
-        tts.stop()
-        isSpeaking.set(false)
+        if (::tts.isInitialized) {
+            tts.stop()
+            isSpeaking.set(false)
+        }
     }
 
     fun shutdown() {
-        tts.stop()
-        tts.shutdown()
-    }
-
-    companion object {
-        /**
-         * Mở màn hình cài đặt TTS data của hệ thống.
-         * Gọi khi nhận được onLanguageUnavailable để user cài tiếng Việt.
-         */
-        fun openTtsSettings(context: Context) {
-            try {
-                val intent = Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                Log.e("TtsManager", "Cannot open TTS install screen", e)
-            }
+        if (::tts.isInitialized) {
+            tts.stop()
+            tts.shutdown()
         }
     }
 }

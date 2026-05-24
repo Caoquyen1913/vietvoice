@@ -18,26 +18,44 @@ class TranslatorManager {
         .build()
 
     private val translator = Translation.getClient(options)
-    private var isReady = false
+
+    /** true = model đã sẵn sàng dịch; false = fallback (chỉ hiện text gốc) */
+    var isReady = false
+        private set
 
     fun downloadModelIfNeeded(onReady: () -> Unit, onError: (Exception) -> Unit) {
         val conditions = DownloadConditions.Builder().build()
         translator.downloadModelIfNeeded(conditions)
             .addOnSuccessListener {
                 isReady = true
+                Log.d(TAG, "ML Kit ZH→VI model ready")
                 onReady()
             }
             .addOnFailureListener { e ->
-                Log.e(TAG, "Model download failed", e)
-                onError(e)
+                Log.e(TAG, "Model download failed (no Google services or network blocked?)", e)
+                // KHÔNG gọi onError — thay vào đó gọi onReady với isReady=false
+                // App vẫn chạy STT, chỉ thiếu bản dịch
+                onReady()
             }
     }
 
+    /**
+     * Dịch text. Nếu model chưa sẵn sàng (download thất bại) → gọi onResult
+     * với text gốc kèm chú thích "[chưa dịch được]" để overlay vẫn hiện.
+     */
     fun translate(text: String, onResult: (String) -> Unit) {
-        if (!isReady || text.isBlank()) return
+        if (text.isBlank()) return
+        if (!isReady) {
+            // Fallback: hiện lại text Trung gốc
+            onResult("[Cần mạng để tải model dịch] $text")
+            return
+        }
         translator.translate(text)
             .addOnSuccessListener { onResult(it) }
-            .addOnFailureListener { Log.e(TAG, "Translation failed: $text", it) }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Translation failed: $text", e)
+                onResult("[lỗi dịch] $text")   // fallback nếu dịch thất bại lúc runtime
+            }
     }
 
     fun close() {
