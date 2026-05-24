@@ -17,23 +17,24 @@ class TtsManager(context: Context) {
 
     var onSpeakStart: (() -> Unit)? = null
     var onSpeakDone: (() -> Unit)? = null
-
     val isSpeaking = AtomicBoolean(false)
 
-    private val tts = TextToSpeech(context) { status ->
-        if (status == TextToSpeech.SUCCESS) {
-            val result = tts.setLanguage(Locale("vi", "VN"))
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Log.e(TAG, "Vietnamese TTS not supported, trying fallback")
-                tts.setLanguage(Locale.getDefault())
-            }
-            tts.setSpeechRate(1.1f)
-        } else {
-            Log.e(TAG, "TTS initialization failed: $status")
-        }
-    }
+    private lateinit var tts: TextToSpeech
 
     init {
+        tts = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val result = tts.setLanguage(Locale("vi", "VN"))
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.e(TAG, "Vietnamese TTS not supported, trying system default")
+                    tts.setLanguage(Locale.getDefault())
+                }
+                tts.setSpeechRate(1.1f)
+            } else {
+                Log.e(TAG, "TTS initialization failed: $status")
+            }
+        }
+
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
                 isSpeaking.set(true)
@@ -53,8 +54,7 @@ class TtsManager(context: Context) {
 
     fun speak(text: String) {
         if (text.isBlank()) return
-        val params = Bundle()
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, UTTERANCE_ID)
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), UTTERANCE_ID)
     }
 
     fun stop() {
