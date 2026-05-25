@@ -154,6 +154,12 @@ class TranslationService : Service() {
                     val capture = AudioCaptureManager(mediaProjection)
                     audioCaptureManager = capture
 
+                    sendStatus("✅ Model STT loaded — bắt đầu capture...")
+
+                    var audioChunks = 0
+                    var silentChunks = 0
+                    var lastDiagChunk = 0
+
                     voskTranscriber!!.listener = object : VoskTranscriber.Listener {
                         override fun onPartialResult(text: String) {
                             mainHandler.post { sendStatus("🎙️ $text") }
@@ -170,6 +176,25 @@ class TranslationService : Service() {
 
                     capture.listener = AudioCaptureManager.Listener { buffer, bytesRead ->
                         voskTranscriber?.feedAudio(buffer, bytesRead)
+                        audioChunks++
+                        // Kiểm tra silence: nếu tất cả bytes đều là 0 → app bị block capture
+                        val hasSound = buffer.take(bytesRead.coerceAtMost(buffer.size)).any { it != 0.toByte() }
+                        if (!hasSound) silentChunks++
+
+                        // Cứ ~3 giây (khoảng 150 chunks) cập nhật status 1 lần
+                        if (audioChunks - lastDiagChunk >= 150) {
+                            lastDiagChunk = audioChunks
+                            val silentPct = if (audioChunks > 0) silentChunks * 100 / audioChunks else 100
+                            val diagMsg = when {
+                                silentPct > 90 ->
+                                    "⚠️ Capture silence ($silentPct% im lặng) — app phát audio có thể đang block capture. Thử app khác (VD: file manager, Zalo voice msg)."
+                                silentPct > 50 ->
+                                    "🎙️ Đang nghe... (âm thanh yếu, $silentPct% silence)"
+                                else ->
+                                    "🎙️ Đang nghe... (audio OK)"
+                            }
+                            mainHandler.post { sendStatus(diagMsg) }
+                        }
                     }
 
                     try {
