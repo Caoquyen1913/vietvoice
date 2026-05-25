@@ -6,20 +6,20 @@ import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
 
-class TranslatorManager {
+class TranslatorManager(source: String = TranslateLanguage.CHINESE,
+                        target: String = TranslateLanguage.VIETNAMESE) {
 
     companion object {
         private const val TAG = "TranslatorManager"
     }
 
     private val options = TranslatorOptions.Builder()
-        .setSourceLanguage(TranslateLanguage.CHINESE)
-        .setTargetLanguage(TranslateLanguage.VIETNAMESE)
+        .setSourceLanguage(source)
+        .setTargetLanguage(target)
         .build()
 
     private val translator = Translation.getClient(options)
 
-    /** true = model đã sẵn sàng dịch; false = fallback (chỉ hiện text gốc) */
     var isReady = false
         private set
 
@@ -28,25 +28,18 @@ class TranslatorManager {
         translator.downloadModelIfNeeded(conditions)
             .addOnSuccessListener {
                 isReady = true
-                Log.d(TAG, "ML Kit ZH→VI model ready")
+                Log.d(TAG, "ML Kit translation model ready ($options)")
                 onReady()
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Model download failed (no Google services or network blocked?)", e)
-                // KHÔNG gọi onError — thay vào đó gọi onReady với isReady=false
-                // App vẫn chạy STT, chỉ thiếu bản dịch
                 onReady()
             }
     }
 
-    /**
-     * Dịch text. Nếu model chưa sẵn sàng (download thất bại) → gọi onResult
-     * với text gốc kèm chú thích "[chưa dịch được]" để overlay vẫn hiện.
-     */
     fun translate(text: String, onResult: (String) -> Unit) {
         if (text.isBlank()) return
         if (!isReady) {
-            // Fallback: hiện lại text Trung gốc
             onResult("[Cần mạng để tải model dịch] $text")
             return
         }
@@ -54,7 +47,7 @@ class TranslatorManager {
             .addOnSuccessListener { onResult(it) }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Translation failed: $text", e)
-                onResult("[lỗi dịch] $text")   // fallback nếu dịch thất bại lúc runtime
+                onResult("[lỗi dịch] $text")
             }
     }
 

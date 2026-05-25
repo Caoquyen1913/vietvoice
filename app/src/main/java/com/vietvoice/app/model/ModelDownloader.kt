@@ -2,6 +2,7 @@ package com.vietvoice.app.model
 
 import android.content.Context
 import android.util.Log
+import com.vietvoice.app.config.TranslationDirection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -18,57 +19,60 @@ object ModelDownloader {
 
     private const val TAG = "ModelDownloader"
 
-    // --- Vosk STT model (tiếng Trung) ---
-    private const val VOSK_MODEL_NAME = "vosk-model-small-cn-0.22"
-    private const val VOSK_MODEL_URL  = "https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip"
+    // --- STT (Vosk) ---
 
-    fun getModelPath(context: Context): String =
-        File(context.filesDir, "models/$VOSK_MODEL_NAME").absolutePath
+    fun getSttModelPath(context: Context, dir: TranslationDirection): String =
+        File(context.filesDir, "models/${dir.sttModelDir}").absolutePath
 
-    fun isModelDownloaded(context: Context): Boolean =
-        File(context.filesDir, "models/$VOSK_MODEL_NAME").exists()
+    fun isSttModelDownloaded(context: Context, dir: TranslationDirection): Boolean =
+        File(context.filesDir, "models/${dir.sttModelDir}").exists()
 
-    fun download(context: Context, onProgress: (progress: Int, error: Exception?) -> Unit) {
+    fun downloadStt(
+        context: Context,
+        dir: TranslationDirection,
+        onProgress: (progress: Int, error: Exception?) -> Unit
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val modelsDir = File(context.filesDir, "models").also { it.mkdirs() }
-                val zipFile   = File(context.filesDir, "models_cache/$VOSK_MODEL_NAME.zip")
+                val zipFile = File(context.filesDir, "models_cache/${dir.sttModelDir}.zip")
                 zipFile.parentFile?.mkdirs()
 
-                downloadFile(VOSK_MODEL_URL, zipFile) { p ->
+                downloadFile(dir.sttModelUrl, zipFile) { p ->
                     CoroutineScope(Dispatchers.Main).launch { onProgress(p, null) }
                 }
                 extractZip(zipFile, modelsDir)
                 zipFile.delete()
                 withContext(Dispatchers.Main) { onProgress(100, null) }
             } catch (e: Exception) {
-                Log.e(TAG, "Vosk download failed", e)
+                Log.e(TAG, "STT download failed (${dir.sttModelDir})", e)
                 withContext(Dispatchers.Main) { onProgress(0, e) }
             }
         }
     }
 
-    // --- sherpa-onnx TTS model (giọng tiếng Việt) ---
-    private const val TTS_MODEL_DIR_NAME = "vits-piper-vi_VN-vais1000-medium"
-    private const val TTS_MODEL_URL =
-        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-vi_VN-vais1000-medium.tar.bz2"
+    // --- TTS (sherpa-onnx) ---
 
-    fun getTtsModelPath(context: Context): String =
-        File(context.filesDir, "models/$TTS_MODEL_DIR_NAME").absolutePath
+    fun getTtsModelPath(context: Context, dir: TranslationDirection): String =
+        File(context.filesDir, "models/${dir.ttsModelDir}").absolutePath
 
-    fun isTtsModelDownloaded(context: Context): Boolean {
-        val dir = File(context.filesDir, "models/$TTS_MODEL_DIR_NAME")
-        return dir.exists() && dir.walk().any { it.extension == "onnx" }
+    fun isTtsModelDownloaded(context: Context, dir: TranslationDirection): Boolean {
+        val d = File(context.filesDir, "models/${dir.ttsModelDir}")
+        return d.exists() && d.walk().any { it.extension == "onnx" }
     }
 
-    fun downloadTts(context: Context, onProgress: (progress: Int, error: Exception?) -> Unit) {
+    fun downloadTts(
+        context: Context,
+        dir: TranslationDirection,
+        onProgress: (progress: Int, error: Exception?) -> Unit
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val modelsDir = File(context.filesDir, "models").also { it.mkdirs() }
-                val archiveFile = File(context.filesDir, "models_cache/tts_vi_full.tar.bz2")
+                val archiveFile = File(context.filesDir, "models_cache/${dir.ttsModelDir}.tar.bz2")
                 archiveFile.parentFile?.mkdirs()
 
-                downloadFile(TTS_MODEL_URL, archiveFile) { p ->
+                downloadFile(dir.ttsModelUrl, archiveFile) { p ->
                     CoroutineScope(Dispatchers.Main).launch { onProgress(p, null) }
                 }
                 withContext(Dispatchers.Main) { onProgress(97, null) }
@@ -76,7 +80,7 @@ object ModelDownloader {
                 archiveFile.delete()
                 withContext(Dispatchers.Main) { onProgress(100, null) }
             } catch (e: Exception) {
-                Log.e(TAG, "TTS model download failed", e)
+                Log.e(TAG, "TTS download failed (${dir.ttsModelDir})", e)
                 withContext(Dispatchers.Main) { onProgress(0, e) }
             }
         }

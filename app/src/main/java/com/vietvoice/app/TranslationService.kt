@@ -16,6 +16,8 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.vietvoice.app.audio.AudioCaptureManager
+import com.vietvoice.app.config.DirectionPrefs
+import com.vietvoice.app.config.TranslationDirection
 import com.vietvoice.app.model.ModelDownloader
 import com.vietvoice.app.overlay.OverlayController
 import com.vietvoice.app.stt.VoskTranscriber
@@ -55,6 +57,7 @@ class TranslationService : Service() {
     private var translatorManager: TranslatorManager? = null
     private var ttsManager: SherpaTtsManager? = null
     private var overlayController: OverlayController? = null
+    private var activeDirection: TranslationDirection = TranslationDirection.ZH_TO_VI
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -66,14 +69,11 @@ class TranslationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PREPARE -> {
-                // Bước 1: vào foreground TRƯỚC khi dialog MediaProjection xuất hiện (Android 14+)
                 startForegroundCompat("⏳ Đang chuẩn bị...")
-                // Show overlay ngay với trạng thái loading — user biết service đang chạy
                 showOverlay()
                 sendStatus("⏳ Đang chờ quyền bắt âm thanh...")
             }
             ACTION_START_PIPELINE -> {
-                // RESULT_OK = -1 trong Android — dùng Int.MIN_VALUE làm sentinel thay vì -1
                 val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
                 val resultData: Intent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
@@ -94,7 +94,6 @@ class TranslationService : Service() {
         return START_NOT_STICKY
     }
 
-    // Hiện overlay ngay — user thấy nút nổi xuất hiện trên màn hình
     private fun showOverlay() {
         if (overlayController != null) return
         val overlay = OverlayController(applicationContext)
@@ -108,49 +107,50 @@ class TranslationService : Service() {
                 overlay.showTranscript(!overlay.transcriptVisible)
             }
         }
-        overlay.isRunning = false      // chưa dịch được — disabled state
+        overlay.isRunning = false
         overlay.show()
         overlayController = overlay
     }
 
     private fun startPipeline(resultCode: Int, resultData: Intent) {
-        // Android 14+: upgrade foreground type sang MEDIA_PROJECTION (bây giờ mới có token hợp lệ)
-        upgradeForegroundForMediaProjection("⬇️ Đang tải model dịch ZH→VI...")
-        sendStatus("⬇️ Đang tải model dịch ZH→VI...")
+        activeDirection = DirectionPrefs.get(this)
+        val dir = activeDirection
+        val dirLabel = if (dir == TranslationDirection.ZH_TO_VI) "ZH→VI" else "VI→ZH"
 
-        ttsManager = SherpaTtsManager(ModelDownloader.getTtsModelPath(this)).also { tts ->
-            if (!ModelDownloader.isTtsModelDownloaded(this)) {
-                sendStatus("⚠️ Chưa tải giọng đọc tiếng Việt. Vào app → Tải giọng đọc (~21MB).")
+        upgradeForegroundForMediaProjection("⬇️ Đang tải model dịch $dirLabel...")
+        sendStatus("⬇️ Đang tải model dịch $dirLabel...")
+
+        // Set direction flags on overlay
+        overlayController?.srcFlag = dir.srcFlag
+        overlayController?.tgtFlag = dir.tgtFlag
+
+        ttsManager = SherpaTtsManager(ModelDownloader.getTtsModelPath(this, dir)).also {
+            if (!ModelDownloader.isTtsModelDownloaded(this, dir)) {
+                sendStatus("⚠️ Chưa tải giọng đọc. Vào app → Tải giọng đọc.")
             }
         }
-        translatorManager = TranslatorManager()
-        voskTranscriber = VoskTranscriber(ModelDownloader.getModelPath(this))
+        translatorManager = TranslatorManager(dir.mlKitSrc, dir.mlKitTgt)
+        voskTranscriber   = VoskTranscriber(ModelDownloader.getSttModelPath(this, dir))
 
         translatorManager!!.downloadModelIfNeeded(
             onReady = {
-                // Nếu isReady=false → ML Kit không download được (server bị chặn / không mạng)
                 if (translatorManager?.isReady == false) {
-                    val warn = "⚠️ Không tải được model dịch (cần mạng/VPN). Vẫn chạy nhận dạng tiếng Trung."
+                    val warn = "⚠️ Không tải được model dịch (cần mạng/VPN). Vẫn chạy nhận dạng."
                     sendStatus(warn)
                     showToast(warn)
                 }
                 sendStatus("⬇️ Đang tải model nhận dạng giọng nói...")
                 updateNotification("⬇️ Đang load Vosk model...")
                 serviceScope.launch {
-                    val loaded = withContext(Dispatchers.IO) {
-                        voskTranscriber!!.load()
-                    }
+                    val loaded = withContext(Dispatchers.IO) { voskTranscriber!!.load() }
                     if (!loaded) {
-                        val msg = "❌ Không load được model tiếng Trung. Thử tải lại model."
-                        sendStatus(msg)
-                        showToast(msg)
+                        val msg = "❌ Không load được model STT. Thử tải lại model."
+                        sendStatus(msg); showToast(msg)
                         return@launch
                     }
 
-                    // Tất cả sẵn sàng — bắt đầu capture
                     val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                     val mediaProjection = projectionManager.getMediaProjection(resultCode, resultData)
-
                     val capture = AudioCaptureManager(mediaProjection)
                     audioCaptureManager = capture
 
@@ -159,11 +159,11 @@ class TranslationService : Service() {
                             mainHandler.post { sendStatus("🎙️ $text") }
                         }
                         override fun onFinalResult(text: String) {
-                            translatorManager?.translate(text) { viText ->
-                                broadcastTranscript(text, viText)
-                                overlayController?.addTranscript(text, viText)
-                                ttsManager?.speak(viText)
-                                sendStatus("✅ $text  →  $viText")
+                            translatorManager?.translate(text) { translated ->
+                                broadcastTranscript(text, translated)
+                                overlayController?.addTranscript(text, translated)
+                                ttsManager?.speak(translated)
+                                sendStatus("✅ ${dir.srcFlag} $text  →  ${dir.tgtFlag} $translated")
                             }
                         }
                     }
@@ -177,21 +177,20 @@ class TranslationService : Service() {
                         overlayController?.isRunning = true
                         val canTranslate = translatorManager?.isReady == true
                         val readyMsg = if (canTranslate)
-                            "✅ Sẵn sàng! Đang nhận dạng + dịch tiếng Trung..."
+                            "✅ Sẵn sàng! Đang nhận dạng + dịch ($dirLabel)..."
                         else
-                            "⚠️ Đang nhận dạng tiếng Trung (chỉ hiện chữ, không có bản dịch)"
+                            "⚠️ Đang nhận dạng (chỉ hiện chữ, không có bản dịch)"
                         sendStatus(readyMsg)
                         updateNotification(readyMsg)
-                        showToast(if (canTranslate) "VietVoice đang dịch ✅" else "VietVoice đang nhận dạng (không dịch) ⚠️")
+                        showToast(if (canTranslate) "VietVoice đang dịch $dirLabel ✅" else "VietVoice đang nhận dạng ⚠️")
                     } catch (e: Exception) {
                         Log.e(TAG, "Audio capture failed", e)
                         val errMsg = "❌ Không bắt được âm thanh: ${e.message}"
-                        sendStatus(errMsg)
-                        showToast(errMsg)
+                        sendStatus(errMsg); showToast(errMsg)
                     }
                 }
             },
-            onError = { _ -> /* TranslatorManager không còn gọi onError — xử lý nội bộ */ }
+            onError = { _ -> }
         )
     }
 
@@ -200,6 +199,8 @@ class TranslationService : Service() {
             Intent(ACTION_TRANSCRIPT).apply {
                 putExtra("original", original)
                 putExtra("translated", translated)
+                putExtra("src_flag", activeDirection.srcFlag)
+                putExtra("tgt_flag", activeDirection.tgtFlag)
             })
     }
 
@@ -236,8 +237,6 @@ class TranslationService : Service() {
     private fun startForegroundCompat(text: String = "VietVoice đang chạy") {
         val notification = buildNotification(text)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // Android 14+: PHẢI dùng MICROPHONE lúc này vì chưa có MediaProjection token.
-            // MEDIA_PROJECTION type sẽ được thêm vào trong startPipeline() sau khi nhận token.
             startForeground(NOTIFICATION_ID, notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
         } else {
@@ -245,10 +244,8 @@ class TranslationService : Service() {
         }
     }
 
-    // Gọi ngay đầu startPipeline() — lúc này đã có MediaProjection token hợp lệ
     private fun upgradeForegroundForMediaProjection(text: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // Gọi startForeground lần 2 với MEDIA_PROJECTION type (additive — không thay thế MICROPHONE)
             startForeground(NOTIFICATION_ID, buildNotification(text),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
@@ -261,7 +258,7 @@ class TranslationService : Service() {
         nm.notify(NOTIFICATION_ID, buildNotification(text))
     }
 
-    private fun buildNotification(text: String = "Đang dịch tiếng Trung → tiếng Việt") =
+    private fun buildNotification(text: String = "VietVoice") =
         NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("VietVoice")
             .setContentText(text)

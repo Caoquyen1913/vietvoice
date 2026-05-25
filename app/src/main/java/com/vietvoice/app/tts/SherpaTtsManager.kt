@@ -60,20 +60,40 @@ class SherpaTtsManager(modelDir: String) {
         return try {
             val onnxFile = File(dir).walk().firstOrNull { it.extension == "onnx" }
                 ?: return null.also { Log.e(TAG, "No .onnx file found in $dir") }
-            val tokensFile    = File(dir, "tokens.txt")
-            val espeakDataDir = File(dir, "espeak-ng-data")
+            val tokensFile = File(dir, "tokens.txt")
 
-            val cfg = OfflineTtsConfig(
-                model = OfflineTtsModelConfig(
-                    vits = OfflineTtsVitsModelConfig(
-                        model    = onnxFile.absolutePath,
-                        tokens   = tokensFile.absolutePath,
-                        dataDir  = espeakDataDir.absolutePath,
-                        lexicon  = ""
-                    ),
-                    numThreads = 2
+            val cfg = if (File(dir, "espeak-ng-data").exists()) {
+                // Vietnamese Piper model
+                OfflineTtsConfig(
+                    model = OfflineTtsModelConfig(
+                        vits = OfflineTtsVitsModelConfig(
+                            model   = onnxFile.absolutePath,
+                            tokens  = tokensFile.absolutePath,
+                            dataDir = File(dir, "espeak-ng-data").absolutePath,
+                            lexicon = ""
+                        ),
+                        numThreads = 2
+                    )
                 )
-            )
+            } else {
+                // Chinese jieba model (fanchen-C and similar)
+                val ruleFsts = listOf("phone.fst", "date.fst", "number.fst")
+                    .map { File(dir, it) }
+                    .filter { it.exists() }
+                    .joinToString(",") { it.absolutePath }
+                OfflineTtsConfig(
+                    model = OfflineTtsModelConfig(
+                        vits = OfflineTtsVitsModelConfig(
+                            model   = onnxFile.absolutePath,
+                            tokens  = tokensFile.absolutePath,
+                            lexicon = File(dir, "lexicon.txt").absolutePath,
+                            dictDir = File(dir, "dict").absolutePath
+                        ),
+                        numThreads = 2
+                    ),
+                    ruleFsts = ruleFsts
+                )
+            }
             OfflineTts(config = cfg).also { Log.d(TAG, "sherpa-onnx TTS loaded OK") }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to init sherpa TTS", e)

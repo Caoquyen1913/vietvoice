@@ -25,24 +25,64 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="VietVoice"
+                android:text="@string/app_name"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:textColor="@color/on_surface"
                 android:letterSpacing="0.04" />
 
             <TextView
+                android:id="@+id/tv_subtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Dịch tiếng Trung → Việt real-time"
                 android:textSize="12sp"
                 android:textColor="@color/subtitle" />
 
         </LinearLayout>
 
+        <!-- Language toggle button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_lang_toggle"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:textSize="12sp"
+            android:paddingHorizontal="10dp"
+            android:minWidth="0dp" />
+
     </LinearLayout>
 
-    <!-- Models card: Vosk + TTS combined -->
+    <!-- Direction selector -->
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/toggle_direction"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="10dp"
+        app:selectionRequired="true"
+        app:singleSelection="true">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_dir_zh_vi"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="40dp"
+            android:text="@string/dir_zh_to_vi"
+            android:textSize="13sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_dir_vi_zh"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="40dp"
+            android:text="@string/dir_vi_to_zh"
+            android:textSize="13sp" />
+
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+    <!-- Models card -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -61,14 +101,14 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Models"
+                android:text="@string/section_models"
                 android:textSize="11sp"
                 android:textAllCaps="true"
                 android:letterSpacing="0.12"
                 android:textColor="@color/subtitle"
                 android:layout_marginBottom="12dp" />
 
-            <!-- Vosk STT row -->
+            <!-- STT row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -77,10 +117,10 @@
                 android:layout_marginBottom="6dp">
 
                 <TextView
+                    android:id="@+id/tv_stt_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="🎙 Nhận dạng tiếng Trung"
                     android:textSize="13sp"
                     android:textColor="@color/on_surface" />
 
@@ -88,7 +128,6 @@
                     android:id="@+id/tv_model_status"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="⚠️ Chưa tải (~42MB)"
                     android:textSize="12sp"
                     android:textColor="@color/subtitle"
                     android:layout_marginEnd="8dp" />
@@ -98,7 +137,7 @@
                     style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="32dp"
-                    android:text="Tải"
+                    android:text="@string/btn_download"
                     android:textSize="12sp"
                     android:textColor="@color/primary"
                     android:minWidth="0dp"
@@ -116,14 +155,13 @@
                 android:progressTint="@color/primary"
                 android:layout_marginBottom="10dp" />
 
-            <!-- Divider -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:background="@color/divider"
                 android:layout_marginBottom="10dp" />
 
-            <!-- TTS voice row -->
+            <!-- TTS row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -132,10 +170,10 @@
                 android:layout_marginBottom="6dp">
 
                 <TextView
+                    android:id="@+id/tv_tts_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="🔊 Giọng đọc tiếng Việt"
                     android:textSize="13sp"
                     android:textColor="@color/on_surface" />
 
@@ -143,7 +181,6 @@
                     android:id="@+id/tv_tts_status"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="⚠️ Chưa tải (~67MB)"
                     android:textSize="12sp"
                     android:textColor="@color/subtitle"
                     android:layout_marginEnd="8dp" />
@@ -153,7 +190,7 @@
                     style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="32dp"
-                    android:text="Tải"
+                    android:text="@string/btn_download"
                     android:textSize="12sp"
                     android:textColor="@color/primary"
                     android:minWidth="0dp"
@@ -193,7 +230,7 @@
                 android:id="@+id/btn_start_stop"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:text="▶  Bắt đầu"
+                android:text="@string/btn_start"
                 android:textSize="15sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="@color/green"
@@ -204,7 +241,7 @@
                 android:id="@+id/tv_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Vui lòng tải model trước"
+                android:text="@string/status_download_models_first"
                 android:textSize="12sp"
                 android:textColor="@color/subtitle"
                 android:gravity="center"
@@ -226,7 +263,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Hiển thị bảng transcript"
+                    android:text="@string/label_show_transcript"
                     android:textSize="13sp"
                     android:textColor="@color/on_surface" />
 
@@ -260,7 +297,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Transcript"
+                android:text="@string/section_transcript"
                 android:textSize="11sp"
                 android:textAllCaps="true"
                 android:letterSpacing="0.12"
@@ -271,11 +308,9 @@
                 android:id="@+id/tv_original"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text=""
                 android:textSize="15sp"
                 android:textColor="@color/on_surface"
                 android:layout_marginBottom="10dp"
-                android:hint="🇨🇳 Giọng tiếng Trung sẽ hiện ở đây..."
                 android:textColorHint="@color/subtitle" />
 
             <View
@@ -288,10 +323,8 @@
                 android:id="@+id/tv_translated"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text=""
                 android:textSize="15sp"
                 android:textColor="@color/primary"
-                android:hint="🇻🇳 Bản dịch tiếng Việt..."
                 android:textColorHint="@color/subtitle" />
 
         </LinearLayout>
@@ -301,7 +334,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Nhấn giữ nút nổi để bật/tắt bảng transcript"
+        android:text="@string/footer_hint"
         android:textSize="11sp"
         android:textColor="@color/subtitle"
         android:gravity="center"

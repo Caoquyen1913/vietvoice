@@ -17,8 +17,12 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
+import androidx.core.os.LocaleListCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.vietvoice.app.config.DirectionPrefs
+import com.vietvoice.app.config.TranslationDirection
 import com.vietvoice.app.databinding.ActivityMainBinding
 import com.vietvoice.app.model.ModelDownloader
 
@@ -32,7 +36,7 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         if (results.all { it.value }) prepareAndRequestProjection()
-        else toast("❌ Cần cấp đầy đủ quyền để app hoạt động")
+        else toast(getString(R.string.toast_permissions_denied))
     }
 
     private val mediaProjectionLauncher = registerForActivityResult(
@@ -45,12 +49,12 @@ class MainActivity : AppCompatActivity() {
                 putExtra(TranslationService.EXTRA_RESULT_DATA, result.data)
             })
             isServiceRunning = true
-            binding.btnStartStop.text = "⏹ Dừng"
+            binding.btnStartStop.text = getString(R.string.btn_stop)
         } else {
             startService(Intent(this, TranslationService::class.java).apply {
                 action = TranslationService.ACTION_STOP
             })
-            toast("⚠️ Cần cho phép bắt âm thanh hệ thống")
+            toast(getString(R.string.toast_audio_permission))
         }
     }
 
@@ -60,8 +64,10 @@ class MainActivity : AppCompatActivity() {
                 TranslationService.ACTION_TRANSCRIPT -> {
                     val original   = intent.getStringExtra("original") ?: return
                     val translated = intent.getStringExtra("translated") ?: ""
-                    binding.tvOriginal.text   = "🇨🇳 $original"
-                    binding.tvTranslated.text = "🇻🇳 $translated"
+                    val srcFlag    = intent.getStringExtra("src_flag") ?: ""
+                    val tgtFlag    = intent.getStringExtra("tgt_flag") ?: ""
+                    binding.tvOriginal.text   = "$srcFlag $original"
+                    binding.tvTranslated.text = "$tgtFlag $translated"
                 }
                 TranslationService.ACTION_STATUS -> {
                     val msg = intent.getStringExtra("message") ?: return
@@ -76,8 +82,10 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        updateModelStatus()
+
         setupButtons()
+        setupDirectionToggle()
+
         val filter = IntentFilter().apply {
             addAction(TranslationService.ACTION_TRANSCRIPT)
             addAction(TranslationService.ACTION_STATUS)
@@ -95,8 +103,49 @@ class MainActivity : AppCompatActivity() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(statusReceiver)
     }
 
+    private fun currentLang(): String {
+        val locales = AppCompatDelegate.getApplicationLocales()
+        return if (locales.size() > 0) locales.get(0)?.language ?: "vi" else "vi"
+    }
+
+    private fun setupDirectionToggle() {
+        val dir = DirectionPrefs.get(this)
+        // Set initial state without triggering listener
+        binding.toggleDirection.check(
+            if (dir == TranslationDirection.ZH_TO_VI) R.id.btn_dir_zh_vi else R.id.btn_dir_vi_zh
+        )
+        updateDirectionUI(dir)
+
+        binding.toggleDirection.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            val newDir = if (checkedId == R.id.btn_dir_zh_vi) TranslationDirection.ZH_TO_VI
+                         else TranslationDirection.VI_TO_ZH
+            DirectionPrefs.set(this, newDir)
+            updateDirectionUI(newDir)
+        }
+    }
+
+    private fun updateDirectionUI(dir: TranslationDirection) {
+        binding.tvSubtitle.text = "${dir.srcFlag} → ${dir.tgtFlag}"
+        when (dir) {
+            TranslationDirection.ZH_TO_VI -> {
+                binding.tvSttLabel.text   = getString(R.string.label_stt_zh)
+                binding.tvTtsLabel.text   = getString(R.string.label_tts_vi)
+                binding.tvOriginal.hint   = getString(R.string.hint_original_zh)
+                binding.tvTranslated.hint = getString(R.string.hint_translated_vi)
+            }
+            TranslationDirection.VI_TO_ZH -> {
+                binding.tvSttLabel.text   = getString(R.string.label_stt_vn)
+                binding.tvTtsLabel.text   = getString(R.string.label_tts_zh)
+                binding.tvOriginal.hint   = getString(R.string.hint_original_vn)
+                binding.tvTranslated.hint = getString(R.string.hint_translated_zh)
+            }
+        }
+        updateModelStatus()
+    }
+
     private fun setupButtons() {
-        binding.btnDownloadModel.setOnClickListener { startVoskDownload() }
+        binding.btnDownloadModel.setOnClickListener { startSttDownload() }
         binding.btnDownloadTts.setOnClickListener   { startTtsDownload() }
 
         binding.btnStartStop.setOnClickListener {
@@ -108,84 +157,120 @@ class MainActivity : AppCompatActivity() {
                          else TranslationService.ACTION_HIDE_TRANSCRIPT
             startService(Intent(this, TranslationService::class.java).apply { this.action = action })
         }
-    }
 
-    private fun updateModelStatus() {
-        val voskOk = ModelDownloader.isModelDownloaded(this)
-        val ttsOk  = ModelDownloader.isTtsModelDownloaded(this)
-
-        binding.tvModelStatus.text = if (voskOk) "✅ Model tiếng Trung đã sẵn sàng"
-                                     else "⚠️ Chưa tải model nhận dạng (~42MB)"
-        binding.btnDownloadModel.isEnabled = !voskOk
-
-        binding.tvTtsStatus.text = if (ttsOk) "✅ Giọng đọc tiếng Việt đã sẵn sàng"
-                                   else "⚠️ Chưa tải giọng đọc (~67MB)"
-        binding.btnDownloadTts.isEnabled = !ttsOk
-
-        val bothReady = voskOk && ttsOk
-        binding.btnStartStop.isEnabled = bothReady
-        if (!bothReady) binding.tvStatus.text = when {
-            !voskOk && !ttsOk -> "Vui lòng tải cả hai model"
-            !voskOk           -> "Vui lòng tải model nhận dạng"
-            else              -> "Vui lòng tải giọng đọc tiếng Việt"
+        // Language toggle: show opposite language as the label (tap to switch TO that language)
+        updateLangToggleLabel()
+        binding.btnLangToggle.setOnClickListener {
+            val newLang = if (currentLang() == "zh") "vi" else "zh"
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(newLang))
+            // AppCompatDelegate persists locale and recreates Activity automatically
         }
     }
 
-    private fun startVoskDownload() {
+    private fun updateLangToggleLabel() {
+        binding.btnLangToggle.text = if (currentLang() == "zh") getString(R.string.btn_lang_vi)
+                                     else getString(R.string.btn_lang_zh)
+    }
+
+    private fun updateModelStatus() {
+        val dir = DirectionPrefs.get(this)
+        val sttOk = ModelDownloader.isSttModelDownloaded(this, dir)
+        val ttsOk = ModelDownloader.isTtsModelDownloaded(this, dir)
+
+        binding.tvModelStatus.text = if (sttOk) {
+            when (dir) {
+                TranslationDirection.ZH_TO_VI -> getString(R.string.status_stt_zh_ready)
+                TranslationDirection.VI_TO_ZH -> getString(R.string.status_stt_vn_ready)
+            }
+        } else {
+            when (dir) {
+                TranslationDirection.ZH_TO_VI -> getString(R.string.status_stt_zh_not_ready)
+                TranslationDirection.VI_TO_ZH -> getString(R.string.status_stt_vn_not_ready)
+            }
+        }
+        binding.btnDownloadModel.isEnabled = !sttOk
+
+        binding.tvTtsStatus.text = if (ttsOk) {
+            when (dir) {
+                TranslationDirection.ZH_TO_VI -> getString(R.string.status_tts_vi_ready)
+                TranslationDirection.VI_TO_ZH -> getString(R.string.status_tts_zh_ready)
+            }
+        } else {
+            when (dir) {
+                TranslationDirection.ZH_TO_VI -> getString(R.string.status_tts_vi_not_ready)
+                TranslationDirection.VI_TO_ZH -> getString(R.string.status_tts_zh_not_ready)
+            }
+        }
+        binding.btnDownloadTts.isEnabled = !ttsOk
+
+        val bothReady = sttOk && ttsOk
+        binding.btnStartStop.isEnabled = bothReady
+        if (!bothReady) binding.tvStatus.text = when {
+            !sttOk && !ttsOk -> getString(R.string.status_need_both_models)
+            !sttOk           -> getString(R.string.status_need_stt)
+            else             -> getString(R.string.status_need_tts)
+        }
+    }
+
+    private fun startSttDownload() {
+        val dir = DirectionPrefs.get(this)
         binding.btnDownloadModel.isEnabled = false
         binding.progressBar.visibility = View.VISIBLE
-        binding.tvModelStatus.text = "Đang tải model nhận dạng..."
+        binding.tvModelStatus.text = getString(R.string.downloading_progress, 0)
 
-        ModelDownloader.download(this) { progress, error ->
+        ModelDownloader.downloadStt(this, dir) { progress, error ->
             runOnUiThread {
                 if (error != null) {
-                    binding.tvModelStatus.text = "❌ Lỗi: ${error.message}"
+                    binding.tvModelStatus.text = "❌ ${error.message}"
                     binding.btnDownloadModel.isEnabled = true
                     binding.progressBar.visibility = View.GONE
-                    toast("Lỗi tải model. Kiểm tra kết nối mạng.")
+                    toast(getString(R.string.toast_stt_download_error))
                 } else if (progress == 100) {
                     binding.progressBar.visibility = View.GONE
                     updateModelStatus()
-                    toast("✅ Tải model nhận dạng xong!")
+                    toast(getString(R.string.toast_stt_download_done))
                 } else {
                     binding.progressBar.progress = progress
-                    binding.tvModelStatus.text = "Đang tải: $progress%"
+                    binding.tvModelStatus.text = getString(R.string.downloading_progress, progress)
                 }
             }
         }
     }
 
     private fun startTtsDownload() {
+        val dir = DirectionPrefs.get(this)
         binding.btnDownloadTts.isEnabled = false
         binding.progressBarTts.visibility = View.VISIBLE
-        binding.tvTtsStatus.text = "Đang tải giọng đọc..."
+        binding.tvTtsStatus.text = getString(R.string.downloading_progress, 0)
 
-        ModelDownloader.downloadTts(this) { progress, error ->
+        ModelDownloader.downloadTts(this, dir) { progress, error ->
             runOnUiThread {
                 if (error != null) {
-                    binding.tvTtsStatus.text = "❌ Lỗi: ${error.message}"
+                    binding.tvTtsStatus.text = "❌ ${error.message}"
                     binding.btnDownloadTts.isEnabled = true
                     binding.progressBarTts.visibility = View.GONE
-                    toast("Lỗi tải giọng đọc. Kiểm tra kết nối mạng.")
+                    toast(getString(R.string.toast_tts_download_error))
                 } else if (progress == 100) {
                     binding.progressBarTts.visibility = View.GONE
                     updateModelStatus()
-                    toast("✅ Tải giọng đọc xong!")
+                    toast(getString(R.string.toast_tts_download_done))
                 } else {
                     binding.progressBarTts.progress = progress
-                    binding.tvTtsStatus.text = "Đang tải: $progress%"
+                    binding.tvTtsStatus.text = getString(R.string.downloading_progress, progress)
                 }
             }
         }
     }
 
     private fun checkAndStart() {
-        if (!ModelDownloader.isModelDownloaded(this) || !ModelDownloader.isTtsModelDownloaded(this)) {
-            toast("Vui lòng tải đủ cả hai model trước")
+        val dir = DirectionPrefs.get(this)
+        if (!ModelDownloader.isSttModelDownloaded(this, dir) ||
+            !ModelDownloader.isTtsModelDownloaded(this, dir)) {
+            toast(getString(R.string.status_need_both_models))
             return
         }
         if (!Settings.canDrawOverlays(this)) {
-            toast("Cần quyền 'Hiển thị trên ứng dụng khác' — đang mở Settings...")
+            toast(getString(R.string.toast_overlay_permission))
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")))
             return
@@ -217,10 +302,10 @@ class MainActivity : AppCompatActivity() {
             action = TranslationService.ACTION_STOP
         })
         isServiceRunning = false
-        binding.btnStartStop.text = "▶ Bắt đầu"
+        binding.btnStartStop.text = getString(R.string.btn_start)
         binding.tvOriginal.text   = ""
         binding.tvTranslated.text = ""
-        binding.tvStatus.text     = "Đã dừng"
+        binding.tvStatus.text     = getString(R.string.status_stopped)
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()

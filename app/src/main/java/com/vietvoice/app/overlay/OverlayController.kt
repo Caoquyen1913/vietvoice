@@ -25,6 +25,8 @@ class OverlayController(private val context: Context) {
     var listener: Listener? = null
     var isRunning = false
     var transcriptVisible = false
+    var srcFlag = "🇨🇳"
+    var tgtFlag = "🇻🇳"
 
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var bubbleView: View? = null
@@ -212,7 +214,7 @@ class OverlayController(private val context: Context) {
         container.removeAllViews()
         for ((orig, trans) in transcriptHistory) {
             val row = TextView(context).apply {
-                text = "🇨🇳 $orig\n🇻🇳 $trans"
+                text = "$srcFlag $orig\n$tgtFlag $trans"
                 textSize = fontSp
                 setTextColor(0xFFECEFF4.toInt())
                 setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))

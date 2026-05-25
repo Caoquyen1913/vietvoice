@@ -1,4 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">VietVoice</string>
+
+    <!-- Direction selector -->
+    <string name="dir_zh_to_vi">🇨🇳 → 🇻🇳</string>
+    <string name="dir_vi_to_zh">🇻🇳 → 🇨🇳</string>
+
+    <!-- Language toggle -->
+    <string name="btn_lang_vi">Tiếng Việt</string>
+    <string name="btn_lang_zh">中文</string>
+
+    <!-- Section headers -->
+    <string name="section_models">Models</string>
+    <string name="section_transcript">Transcript</string>
+
+    <!-- STT row labels (direction-dependent, set in code) -->
+    <string name="label_stt_zh">🎙 Nhận dạng tiếng Trung</string>
+    <string name="label_stt_vn">🎙 Nhận dạng tiếng Việt</string>
+
+    <!-- TTS row labels (direction-dependent, set in code) -->
+    <string name="label_tts_vi">🔊 Giọng đọc tiếng Việt</string>
+    <string name="label_tts_zh">🔊 Giọng đọc tiếng Trung</string>
+
+    <!-- Model status strings -->
+    <string name="status_stt_zh_ready">✅ Model tiếng Trung đã sẵn sàng</string>
+    <string name="status_stt_vn_ready">✅ Model tiếng Việt đã sẵn sàng</string>
+    <string name="status_tts_vi_ready">✅ Giọng đọc tiếng Việt đã sẵn sàng</string>
+    <string name="status_tts_zh_ready">✅ Giọng đọc tiếng Trung đã sẵn sàng</string>
+    <string name="status_stt_zh_not_ready">⚠️ Chưa tải (~42MB)</string>
+    <string name="status_stt_vn_not_ready">⚠️ Chưa tải (~32MB)</string>
+    <string name="status_tts_vi_not_ready">⚠️ Chưa tải (~67MB)</string>
+    <string name="status_tts_zh_not_ready">⚠️ Chưa tải (~119MB)</string>
+
+    <!-- Buttons -->
+    <string name="btn_download">Tải</string>
+    <string name="btn_start">▶  Bắt đầu</string>
+    <string name="btn_stop">⏹ Dừng</string>
+
+    <!-- Status and hints -->
+    <string name="status_download_models_first">Vui lòng tải model trước</string>
+    <string name="status_need_both_models">Vui lòng tải đủ cả hai model trước</string>
+    <string name="status_need_stt">Vui lòng tải model nhận dạng</string>
+    <string name="status_need_tts">Vui lòng tải giọng đọc</string>
+    <string name="status_stopped">Đã dừng</string>
+    <string name="label_show_transcript">Hiển thị bảng transcript</string>
+
+    <!-- Transcript hints (direction-dependent, set in code) -->
+    <string name="hint_original_zh">🇨🇳 Giọng tiếng Trung sẽ hiện ở đây…</string>
+    <string name="hint_original_vn">🇻🇳 Giọng tiếng Việt sẽ hiện ở đây…</string>
+    <string name="hint_translated_vi">🇻🇳 Bản dịch tiếng Việt…</string>
+    <string name="hint_translated_zh">🇨🇳 中文翻译…</string>
+
+    <!-- Footer -->
+    <string name="footer_hint">Nhấn giữ nút nổi để bật/tắt bảng transcript</string>
+
+    <!-- Toast messages -->
+    <string name="toast_permissions_denied">❌ Cần cấp đầy đủ quyền để app hoạt động</string>
+    <string name="toast_overlay_permission">Cần quyền hiển thị trên màn hình — đang mở Settings…</string>
+    <string name="toast_audio_permission">⚠️ Cần cho phép bắt âm thanh hệ thống</string>
+    <string name="toast_stt_download_error">Lỗi tải model nhận dạng. Kiểm tra kết nối mạng.</string>
+    <string name="toast_tts_download_error">Lỗi tải giọng đọc. Kiểm tra kết nối mạng.</string>
+    <string name="toast_stt_download_done">✅ Tải model nhận dạng xong!</string>
+    <string name="toast_tts_download_done">✅ Tải giọng đọc xong!</string>
+    <string name="downloading_progress">Đang tải: %d%%</string>
 </resources>
