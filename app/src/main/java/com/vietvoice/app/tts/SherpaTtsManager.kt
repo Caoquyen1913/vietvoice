@@ -12,16 +12,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * TTS engine dùng sherpa-onnx + Piper model tiếng Việt.
- * Không cần Google TTS — chạy hoàn toàn offline.
- *
- * API public giống TtsManager cũ để TranslationService gần như không đổi.
- */
 class SherpaTtsManager(modelDir: String) {
 
     companion object {
@@ -33,6 +28,7 @@ class SherpaTtsManager(modelDir: String) {
     val isSpeaking = AtomicBoolean(false)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val channel = Channel<String>(Channel.UNLIMITED)
 
     private val tts: OfflineTts? by lazy { initTts(modelDir) }
     private val isModelReady: Boolean = File(modelDir).let { dir ->
@@ -40,6 +36,25 @@ class SherpaTtsManager(modelDir: String) {
     }
 
     @Volatile private var currentTrack: AudioTrack? = null
+
+    init {
+        scope.launch {
+            for (text in channel) {
+                val engine = tts ?: continue
+                isSpeaking.set(true)
+                onSpeakStart?.invoke()
+                try {
+                    val audio = engine.generate(text = text, sid = 0, speed = 1.0f)
+                    playAudio(audio.samples, audio.sampleRate)
+                } catch (e: Exception) {
+                    Log.e(TAG, "speak() failed", e)
+                } finally {
+                    isSpeaking.set(false)
+                    onSpeakDone?.invoke()
+                }
+            }
+        }
+    }
 
     private fun initTts(dir: String): OfflineTts? {
         return try {
@@ -68,28 +83,14 @@ class SherpaTtsManager(modelDir: String) {
 
     fun speak(text: String) {
         if (!isModelReady || text.isBlank()) return
-        if (!isSpeaking.compareAndSet(false, true)) return   // đang đọc → bỏ qua câu mới
-
-        scope.launch {
-            try {
-                val engine = tts ?: run { isSpeaking.set(false); return@launch }
-                val audio  = engine.generate(text = text, sid = 0, speed = 1.0f)
-                onSpeakStart?.invoke()  // gate STT trước khi phát
-                playAudio(audio.samples, audio.sampleRate)
-            } catch (e: Exception) {
-                Log.e(TAG, "speak() failed", e)
-            } finally {
-                isSpeaking.set(false)
-                onSpeakDone?.invoke()   // ungate STT
-            }
-        }
+        channel.trySend(text)
     }
 
     private fun playAudio(samples: FloatArray, sampleRate: Int) {
         val attrs = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-            .setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_NONE) // chống vòng lặp
+            .setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_NONE)
             .build()
 
         val fmt = AudioFormat.Builder()
@@ -118,13 +119,15 @@ class SherpaTtsManager(modelDir: String) {
     }
 
     fun stop() {
+        while (channel.tryReceive().isSuccess) {}
         currentTrack?.stop()
         isSpeaking.set(false)
     }
 
     fun shutdown() {
-        stop()
+        channel.close()
         scope.cancel()
+        try { currentTrack?.stop() } catch (_: Exception) {}
         try { tts?.release() } catch (_: Exception) {}
     }
 }

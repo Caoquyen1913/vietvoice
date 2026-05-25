@@ -119,7 +119,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnDownloadModel.isEnabled = !voskOk
 
         binding.tvTtsStatus.text = if (ttsOk) "✅ Giọng đọc tiếng Việt đã sẵn sàng"
-                                   else "⚠️ Chưa tải giọng đọc (~21MB)"
+                                   else "⚠️ Chưa tải giọng đọc (~67MB)"
         binding.btnDownloadTts.isEnabled = !ttsOk
 
         val bothReady = voskOk && ttsOk

@@ -154,9 +154,6 @@ class TranslationService : Service() {
                     val capture = AudioCaptureManager(mediaProjection)
                     audioCaptureManager = capture
 
-                    ttsManager!!.onSpeakStart = { capture.setGated(true) }
-                    ttsManager!!.onSpeakDone  = { capture.setGated(false) }
-
                     voskTranscriber!!.listener = object : VoskTranscriber.Listener {
                         override fun onPartialResult(text: String) {
                             mainHandler.post { sendStatus("🎙️ $text") }

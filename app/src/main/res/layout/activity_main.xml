@@ -4,85 +4,53 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
     android:background="@color/background">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="🎮 VietVoice"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:textColor="@color/primary"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Dịch tiếng Trung → tiếng Việt trực tiếp trong game"
-        android:textSize="14sp"
-        android:textColor="@color/subtitle"
-        android:layout_marginBottom="32dp" />
-
-    <androidx.cardview.widget.CardView
-        xmlns:app="http://schemas.android.com/apk/res-auto"
+    <!-- Header -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="4dp"
-        android:layout_marginBottom="8dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="12dp">
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:layout_weight="1"
+            android:orientation="vertical">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Giọng đọc tiếng Việt (offline)"
-                android:textSize="14sp"
+                android:text="VietVoice"
+                android:textSize="24sp"
                 android:textStyle="bold"
                 android:textColor="@color/on_surface"
-                android:layout_marginBottom="8dp" />
+                android:letterSpacing="0.04" />
 
             <TextView
-                android:id="@+id/tv_tts_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="⚠️ Chưa tải giọng đọc (~21MB)"
-                android:textSize="13sp"
-                android:textColor="@color/subtitle"
-                android:layout_marginBottom="12dp" />
-
-            <ProgressBar
-                android:id="@+id/progress_bar_tts"
-                style="@style/Widget.AppCompat.ProgressBar.Horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="100"
-                android:visibility="gone"
-                android:layout_marginBottom="12dp" />
-
-            <Button
-                android:id="@+id/btn_download_tts"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⬇ Tải giọng đọc"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="@color/primary" />
+                android:text="Dịch tiếng Trung → Việt real-time"
+                android:textSize="12sp"
+                android:textColor="@color/subtitle" />
 
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
 
+    </LinearLayout>
+
+    <!-- Models card: Vosk + TTS combined -->
     <androidx.cardview.widget.CardView
-        xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="4dp"
-        android:layout_marginBottom="16dp">
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@color/surface">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -93,48 +61,127 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Model nhận dạng giọng nói"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="@color/on_surface"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
-                android:id="@+id/tv_model_status"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⚠️ Chưa tải model tiếng Trung (~42MB)"
-                android:textSize="13sp"
+                android:text="Models"
+                android:textSize="11sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.12"
                 android:textColor="@color/subtitle"
                 android:layout_marginBottom="12dp" />
+
+            <!-- Vosk STT row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🎙 Nhận dạng tiếng Trung"
+                    android:textSize="13sp"
+                    android:textColor="@color/on_surface" />
+
+                <TextView
+                    android:id="@+id/tv_model_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚠️ Chưa tải (~42MB)"
+                    android:textSize="12sp"
+                    android:textColor="@color/subtitle"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/btn_download_model"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="Tải"
+                    android:textSize="12sp"
+                    android:textColor="@color/primary"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="12dp" />
+
+            </LinearLayout>
 
             <ProgressBar
                 android:id="@+id/progress_bar"
                 style="@style/Widget.AppCompat.ProgressBar.Horizontal"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="4dp"
                 android:max="100"
                 android:visibility="gone"
-                android:layout_marginBottom="12dp" />
+                android:progressTint="@color/primary"
+                android:layout_marginBottom="10dp" />
 
-            <Button
-                android:id="@+id/btn_download_model"
-                android:layout_width="wrap_content"
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider"
+                android:layout_marginBottom="10dp" />
+
+            <!-- TTS voice row -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="⬇ Tải Model"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="@color/primary" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🔊 Giọng đọc tiếng Việt"
+                    android:textSize="13sp"
+                    android:textColor="@color/on_surface" />
+
+                <TextView
+                    android:id="@+id/tv_tts_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚠️ Chưa tải (~67MB)"
+                    android:textSize="12sp"
+                    android:textColor="@color/subtitle"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/btn_download_tts"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="Tải"
+                    android:textSize="12sp"
+                    android:textColor="@color/primary"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="12dp" />
+
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/progress_bar_tts"
+                style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:max="100"
+                android:visibility="gone"
+                android:progressTint="@color/primary" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
+    <!-- Control card -->
     <androidx.cardview.widget.CardView
-        xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="4dp"
-        android:layout_marginBottom="16dp">
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@color/surface">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -142,25 +189,16 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Điều khiển"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="@color/on_surface"
-                android:layout_marginBottom="16dp" />
-
             <Button
                 android:id="@+id/btn_start_stop"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="▶ Bắt đầu"
-                android:textSize="16sp"
+                android:layout_height="52dp"
+                android:text="▶  Bắt đầu"
+                android:textSize="15sp"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="@color/green"
                 android:enabled="false"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="10dp" />
 
             <TextView
                 android:id="@+id/tv_status"
@@ -169,8 +207,14 @@
                 android:text="Vui lòng tải model trước"
                 android:textSize="12sp"
                 android:textColor="@color/subtitle"
-                android:layout_marginBottom="16dp"
-                android:gravity="center" />
+                android:gravity="center"
+                android:layout_marginBottom="12dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider"
+                android:layout_marginBottom="12dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -183,7 +227,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Hiển thị bảng transcript"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textColor="@color/on_surface" />
 
                 <androidx.appcompat.widget.SwitchCompat
@@ -196,27 +240,31 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
+    <!-- Live transcript card -->
     <androidx.cardview.widget.CardView
-        xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="4dp">
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="10dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@color/surface">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical"
             android:padding="16dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Transcript (live)"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="@color/on_surface"
+                android:text="Transcript"
+                android:textSize="11sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.12"
+                android:textColor="@color/subtitle"
                 android:layout_marginBottom="12dp" />
 
             <TextView
@@ -226,15 +274,15 @@
                 android:text=""
                 android:textSize="15sp"
                 android:textColor="@color/on_surface"
-                android:layout_marginBottom="8dp"
-                android:hint="Giọng tiếng Trung sẽ hiện ở đây..."
+                android:layout_marginBottom="10dp"
+                android:hint="🇨🇳 Giọng tiếng Trung sẽ hiện ở đây..."
                 android:textColorHint="@color/subtitle" />
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:background="@color/divider"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="10dp" />
 
             <TextView
                 android:id="@+id/tv_translated"
@@ -243,19 +291,20 @@
                 android:text=""
                 android:textSize="15sp"
                 android:textColor="@color/primary"
-                android:hint="Bản dịch tiếng Việt..."
+                android:hint="🇻🇳 Bản dịch tiếng Việt..."
                 android:textColorHint="@color/subtitle" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
+    <!-- Footer -->
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="⚠️ Khi vào game, dùng nút nổi trên màn hình để điều khiển"
-        android:textSize="12sp"
+        android:text="Nhấn giữ nút nổi để bật/tắt bảng transcript"
+        android:textSize="11sp"
         android:textColor="@color/subtitle"
-        android:layout_marginTop="12dp"
-        android:gravity="center" />
+        android:gravity="center"
+        android:paddingBottom="16dp" />
 
 </LinearLayout>

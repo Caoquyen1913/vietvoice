@@ -1,9 +1,107 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/ll_transcripts"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="8dp"
-    android:background="#CC000000" />
+    android:layout_height="match_parent"
+    android:background="@drawable/overlay_panel_bg">
+
+    <!-- Main content: title bar + scrollable transcript -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Title bar / drag handle row -->
+        <LinearLayout
+            android:id="@+id/tv_drag_handle"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="6dp"
+            android:background="#1AFFFFFF">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="⠿ Transcript"
+                android:textColor="#AAFFFFFF"
+                android:textSize="11sp"
+                android:paddingStart="4dp" />
+
+            <TextView
+                android:id="@+id/btn_font_smaller"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:text="A-"
+                android:textColor="#CCFFFFFF"
+                android:textSize="11sp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/btn_font_larger"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:text="A+"
+                android:textColor="#CCFFFFFF"
+                android:textSize="11sp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/btn_clear"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:text="🗑"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/btn_close"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:text="✕"
+                android:textColor="#CCFFFFFF"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true" />
+
+        </LinearLayout>
+
+        <!-- Scrollable transcript content -->
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="false"
+            android:fadeScrollbars="true">
+
+            <LinearLayout
+                android:id="@+id/ll_transcripts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="6dp" />
+
+        </ScrollView>
+
+    </LinearLayout>
+
+    <!-- Resize handle at bottom-right corner -->
+    <View
+        android:id="@+id/v_resize_handle"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="bottom|end"
+        android:background="#44FFFFFF"
+        android:clickable="true"
+        android:focusable="true" />
+
+</FrameLayout>

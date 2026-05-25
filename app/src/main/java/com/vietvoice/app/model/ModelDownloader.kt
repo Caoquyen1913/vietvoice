@@ -49,9 +49,9 @@ object ModelDownloader {
     }
 
     // --- sherpa-onnx TTS model (giọng tiếng Việt) ---
-    private const val TTS_MODEL_DIR_NAME = "vits-piper-vi_VN-vais1000-medium-int8"
+    private const val TTS_MODEL_DIR_NAME = "vits-piper-vi_VN-vais1000-medium"
     private const val TTS_MODEL_URL =
-        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-vi_VN-vais1000-medium-int8.tar.bz2"
+        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-vi_VN-vais1000-medium.tar.bz2"
 
     fun getTtsModelPath(context: Context): String =
         File(context.filesDir, "models/$TTS_MODEL_DIR_NAME").absolutePath
@@ -65,7 +65,7 @@ object ModelDownloader {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val modelsDir = File(context.filesDir, "models").also { it.mkdirs() }
-                val archiveFile = File(context.filesDir, "models_cache/tts_vi.tar.bz2")
+                val archiveFile = File(context.filesDir, "models_cache/tts_vi_full.tar.bz2")
                 archiveFile.parentFile?.mkdirs()
 
                 downloadFile(TTS_MODEL_URL, archiveFile) { p ->

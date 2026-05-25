@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.VietVoice" parent="Theme.MaterialComponents.Light.DarkActionBar">
+    <style name="Theme.VietVoice" parent="Theme.MaterialComponents.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryVariant">#0D47A1</item>
+        <item name="colorPrimaryVariant">#2563D8</item>
         <item name="colorOnPrimary">#FFFFFF</item>
         <item name="colorSecondary">@color/green</item>
-        <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="android:statusBarColor">@color/primary</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

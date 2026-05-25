@@ -28,10 +28,13 @@ class OverlayController(private val context: Context) {
 
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var bubbleView: View? = null
-    private var transcriptView: LinearLayout? = null
+    private var transcriptView: View? = null
 
     private val transcriptHistory = LinkedList<Pair<String, String>>()
     private var tvBubbleBtn: TextView? = null
+    private var fontSp = 13f
+
+    private fun dpToPx(dp: Int): Int = (dp * context.resources.displayMetrics.density).toInt()
 
     private val overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -50,13 +53,19 @@ class OverlayController(private val context: Context) {
         y = 300
     }
 
-    private val transcriptParams = WindowManager.LayoutParams(
-        WindowManager.LayoutParams.MATCH_PARENT,
-        WindowManager.LayoutParams.WRAP_CONTENT,
-        overlayType,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-        PixelFormat.TRANSLUCENT
-    ).apply { gravity = Gravity.BOTTOM }
+    private val transcriptParams by lazy {
+        WindowManager.LayoutParams(
+            dpToPx(320),
+            dpToPx(220),
+            overlayType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = dpToPx(380)
+        }
+    }
 
     fun show() {
         val inflater = LayoutInflater.from(context)
@@ -67,9 +76,28 @@ class OverlayController(private val context: Context) {
         setupBubbleTouchAndGesture(bubble)
         bubbleView = bubble
 
-        val transcript = inflater.inflate(R.layout.overlay_transcript, null) as LinearLayout
+        val transcript = inflater.inflate(R.layout.overlay_transcript, null)
         transcript.visibility = View.GONE
         transcriptView = transcript
+
+        transcript.findViewById<View>(R.id.tv_drag_handle).let { setupTranscriptDrag(it) }
+
+        transcript.findViewById<View>(R.id.btn_font_smaller).setOnClickListener {
+            fontSp = (fontSp - 1f).coerceAtLeast(9f)
+            renderTranscripts()
+        }
+        transcript.findViewById<View>(R.id.btn_font_larger).setOnClickListener {
+            fontSp = (fontSp + 1f).coerceAtMost(24f)
+            renderTranscripts()
+        }
+        transcript.findViewById<View>(R.id.btn_clear).setOnClickListener {
+            transcriptHistory.clear()
+            renderTranscripts()
+        }
+        transcript.findViewById<View>(R.id.btn_close).setOnClickListener {
+            showTranscript(false)
+        }
+        transcript.findViewById<View>(R.id.v_resize_handle).let { setupTranscriptResize(it) }
 
         windowManager.addView(bubble, bubbleParams)
         windowManager.addView(transcript, transcriptParams)
@@ -126,25 +154,81 @@ class OverlayController(private val context: Context) {
         }
     }
 
-    fun addTranscript(original: String, translated: String) {
-        transcriptHistory.addFirst(Pair(original, translated))
-        if (transcriptHistory.size > 5) transcriptHistory.removeLast()
+    private fun setupTranscriptDrag(handleView: View) {
+        var startX = 0; var startY = 0
+        var startRawX = 0f; var startRawY = 0f
 
-        val container = transcriptView ?: return
+        handleView.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = transcriptParams.x
+                    startY = transcriptParams.y
+                    startRawX = event.rawX
+                    startRawY = event.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    transcriptParams.x = startX + (event.rawX - startRawX).toInt()
+                    transcriptParams.y = startY + (event.rawY - startRawY).toInt()
+                    transcriptView?.let { windowManager.updateViewLayout(it, transcriptParams) }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
+                else -> false
+            }
+        }
+    }
+
+    private fun setupTranscriptResize(resizeHandle: View) {
+        var startRawX = 0f; var startRawY = 0f
+        var startW = 0; var startH = 0
+
+        resizeHandle.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startRawX = event.rawX
+                    startRawY = event.rawY
+                    startW = transcriptParams.width
+                    startH = transcriptParams.height
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    transcriptParams.width = (startW + (event.rawX - startRawX).toInt())
+                        .coerceAtLeast(dpToPx(200))
+                    transcriptParams.height = (startH + (event.rawY - startRawY).toInt())
+                        .coerceAtLeast(dpToPx(140))
+                    transcriptView?.let { windowManager.updateViewLayout(it, transcriptParams) }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
+                else -> false
+            }
+        }
+    }
+
+    private fun renderTranscripts() {
+        val tv = transcriptView ?: return
+        val container = tv.findViewById<LinearLayout>(R.id.ll_transcripts) ?: return
         container.removeAllViews()
         for ((orig, trans) in transcriptHistory) {
-            val tv = TextView(context).apply {
+            val row = TextView(context).apply {
                 text = "🇨🇳 $orig\n🇻🇳 $trans"
-                textSize = 13f
-                setTextColor(0xFFFFFFFF.toInt())
-                setPadding(16, 8, 16, 8)
+                textSize = fontSp
+                setTextColor(0xFFECEFF4.toInt())
+                setPadding(dpToPx(8), dpToPx(6), dpToPx(8), dpToPx(6))
             }
             val lp = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0, 0, 0, 2) }
-            container.addView(tv, lp)
+            ).apply { setMargins(0, 0, 0, dpToPx(2)) }
+            container.addView(row, lp)
         }
+    }
+
+    fun addTranscript(original: String, translated: String) {
+        transcriptHistory.addFirst(Pair(original, translated))
+        if (transcriptHistory.size > 12) transcriptHistory.removeLast()
+        renderTranscripts()
     }
 
     fun showTranscript(show: Boolean) {
