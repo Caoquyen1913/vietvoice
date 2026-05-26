@@ -177,9 +177,19 @@ class TranslationService : Service() {
                     capture.listener = AudioCaptureManager.Listener { buffer, bytesRead ->
                         voskTranscriber?.feedAudio(buffer, bytesRead)
                         audioChunks++
-                        // Kiểm tra silence: nếu tất cả bytes đều là 0 → app bị block capture
-                        val hasSound = buffer.take(bytesRead.coerceAtMost(buffer.size)).any { it != 0.toByte() }
-                        if (!hasSound) silentChunks++
+
+                        // Tính RMS amplitude từ PCM 16-bit (mỗi sample = 2 bytes, little-endian)
+                        var sumSq = 0L
+                        val samples = bytesRead / 2
+                        for (i in 0 until samples) {
+                            val lo = buffer[i * 2].toInt() and 0xFF
+                            val hi = buffer[i * 2 + 1].toInt()
+                            val sample = (hi shl 8) or lo
+                            sumSq += sample.toLong() * sample.toLong()
+                        }
+                        val rms = if (samples > 0) Math.sqrt(sumSq.toDouble() / samples).toInt() else 0
+                        // Ngưỡng: < 200 = im lặng thực sự; 200-1000 = tiếng nhỏ; > 1000 = rõ ràng
+                        if (rms < 200) silentChunks++
 
                         // Cứ ~3 giây (khoảng 150 chunks) cập nhật status 1 lần
                         if (audioChunks - lastDiagChunk >= 150) {
@@ -187,11 +197,11 @@ class TranslationService : Service() {
                             val silentPct = if (audioChunks > 0) silentChunks * 100 / audioChunks else 100
                             val diagMsg = when {
                                 silentPct > 90 ->
-                                    "⚠️ Capture silence ($silentPct% im lặng) — app phát audio có thể đang block capture. Thử app khác (VD: file manager, Zalo voice msg)."
-                                silentPct > 50 ->
-                                    "🎙️ Đang nghe... (âm thanh yếu, $silentPct% silence)"
+                                    "⚠️ Block capture ($silentPct% silence, RMS~$rms) — app đang block. Thử VLC/Google Translate TTS."
+                                silentPct > 60 ->
+                                    "🎙️ Âm thanh yếu ($silentPct% silence, RMS~$rms) — tăng âm lượng trong app nguồn hoặc thử Google Translate TTS."
                                 else ->
-                                    "🎙️ Đang nghe... (audio OK)"
+                                    "🎙️ Đang nghe... (RMS~$rms, $silentPct% silence)"
                             }
                             mainHandler.post { sendStatus(diagMsg) }
                         }
