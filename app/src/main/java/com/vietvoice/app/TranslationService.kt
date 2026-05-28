@@ -174,6 +174,8 @@ class TranslationService : Service() {
                         }
                     }
 
+                    var peakRms = 0
+
                     capture.listener = AudioCaptureManager.Listener { buffer, bytesRead ->
                         voskTranscriber?.feedAudio(buffer, bytesRead)
                         audioChunks++
@@ -188,21 +190,23 @@ class TranslationService : Service() {
                             sumSq += sample.toLong() * sample.toLong()
                         }
                         val rms = if (samples > 0) Math.sqrt(sumSq.toDouble() / samples).toInt() else 0
-                        // Ngưỡng: < 200 = im lặng thực sự; 200-1000 = tiếng nhỏ; > 1000 = rõ ràng
-                        if (rms < 200) silentChunks++
+                        if (rms > peakRms) peakRms = rms
+                        // Ngưỡng thấp: < 30 = silence thực sự (noise floor); dùng peak để tránh miss burst
+                        if (rms < 30) silentChunks++
 
                         // Cứ ~3 giây (khoảng 150 chunks) cập nhật status 1 lần
                         if (audioChunks - lastDiagChunk >= 150) {
                             lastDiagChunk = audioChunks
                             val silentPct = if (audioChunks > 0) silentChunks * 100 / audioChunks else 100
                             val diagMsg = when {
-                                silentPct > 90 ->
-                                    "⚠️ Block capture ($silentPct% silence, RMS~$rms) — app đang block. Thử VLC/Google Translate TTS."
-                                silentPct > 60 ->
-                                    "🎙️ Âm thanh yếu ($silentPct% silence, RMS~$rms) — tăng âm lượng trong app nguồn hoặc thử Google Translate TTS."
+                                silentPct > 95 ->
+                                    "⚠️ Không nhận được audio (peak RMS=$peakRms) — app đang block capture. Thử VLC/Google Translate TTS."
+                                peakRms < 200 ->
+                                    "🎙️ Audio rất nhỏ (peak RMS=$peakRms, $silentPct% silence) — Vosk khó nhận dạng. Thử Google Translate TTS."
                                 else ->
-                                    "🎙️ Đang nghe... (RMS~$rms, $silentPct% silence)"
+                                    "🎙️ Đang nghe... (peak RMS=$peakRms, $silentPct% silence)"
                             }
+                            peakRms = 0  // reset peak mỗi kỳ
                             mainHandler.post { sendStatus(diagMsg) }
                         }
                     }
