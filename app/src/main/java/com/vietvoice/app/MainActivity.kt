@@ -287,24 +287,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun prepareAndRequestProjection() {
-        val dir = DirectionPrefs.get(this)
         binding.tvStatus.text = "Đang khởi động service..."
         ContextCompat.startForegroundService(this,
             Intent(this, TranslationService::class.java).apply {
                 action = TranslationService.ACTION_PREPARE
             })
         Handler(Looper.getMainLooper()).postDelayed({
-            if (dir == TranslationDirection.VI_TO_ZH) {
-                // VI→ZH dùng mic — không cần MediaProjection, bắt đầu luôn
-                startService(Intent(this, TranslationService::class.java).apply {
-                    action = TranslationService.ACTION_START_MIC_PIPELINE
-                })
-                isServiceRunning = true
-                binding.btnStartStop.text = getString(R.string.btn_stop)
-            } else {
-                // ZH→VI dùng AudioPlaybackCapture — cần quyền screen capture
-                mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
-            }
+            mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
         }, 400)
     }
 

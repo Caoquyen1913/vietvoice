@@ -6,7 +6,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Handler
@@ -17,7 +16,6 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.vietvoice.app.audio.AudioCaptureManager
-import com.vietvoice.app.audio.MicCaptureManager
 import com.vietvoice.app.config.DirectionPrefs
 import com.vietvoice.app.config.TranslationDirection
 import com.vietvoice.app.model.ModelDownloader
@@ -39,14 +37,13 @@ class TranslationService : Service() {
         private const val CHANNEL_ID = "vietvoice_channel"
         private const val NOTIFICATION_ID = 1
 
-        const val ACTION_PREPARE            = "com.vietvoice.app.PREPARE"
-        const val ACTION_START_PIPELINE     = "com.vietvoice.app.START_PIPELINE"
-        const val ACTION_START_MIC_PIPELINE = "com.vietvoice.app.START_MIC_PIPELINE"
-        const val ACTION_STOP               = "com.vietvoice.app.STOP"
-        const val ACTION_SHOW_TRANSCRIPT    = "com.vietvoice.app.SHOW_TRANSCRIPT"
-        const val ACTION_HIDE_TRANSCRIPT    = "com.vietvoice.app.HIDE_TRANSCRIPT"
-        const val ACTION_TRANSCRIPT         = "com.vietvoice.app.TRANSCRIPT"
-        const val ACTION_STATUS             = "com.vietvoice.app.STATUS"
+        const val ACTION_PREPARE          = "com.vietvoice.app.PREPARE"
+        const val ACTION_START_PIPELINE   = "com.vietvoice.app.START_PIPELINE"
+        const val ACTION_STOP             = "com.vietvoice.app.STOP"
+        const val ACTION_SHOW_TRANSCRIPT  = "com.vietvoice.app.SHOW_TRANSCRIPT"
+        const val ACTION_HIDE_TRANSCRIPT  = "com.vietvoice.app.HIDE_TRANSCRIPT"
+        const val ACTION_TRANSCRIPT       = "com.vietvoice.app.TRANSCRIPT"
+        const val ACTION_STATUS           = "com.vietvoice.app.STATUS"
 
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
@@ -56,7 +53,6 @@ class TranslationService : Service() {
     private val mainHandler  = Handler(Looper.getMainLooper())
 
     private var audioCaptureManager: AudioCaptureManager? = null
-    private var micCaptureManager: MicCaptureManager? = null
     private var voskTranscriber: VoskTranscriber? = null
     private var translatorManager: TranslatorManager? = null
     private var ttsManager: SherpaTtsManager? = null
@@ -75,7 +71,7 @@ class TranslationService : Service() {
             ACTION_PREPARE -> {
                 startForegroundCompat("⏳ Đang chuẩn bị...")
                 showOverlay()
-                sendStatus("⏳ Đang chờ quyền...")
+                sendStatus("⏳ Đang chờ quyền bắt âm thanh...")
             }
             ACTION_START_PIPELINE -> {
                 val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Int.MIN_VALUE)
@@ -85,15 +81,12 @@ class TranslationService : Service() {
                     @Suppress("DEPRECATION") intent.getParcelableExtra(EXTRA_RESULT_DATA)
                 }
                 if (resultCode == android.app.Activity.RESULT_OK && resultData != null) {
-                    val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                    val mediaProjection = projectionManager.getMediaProjection(resultCode, resultData)
-                    startPipelineInternal(mediaProjection)
+                    startPipeline(resultCode, resultData)
                 } else {
                     showToast("Lỗi: không lấy được quyền bắt âm thanh")
                     stopSelf()
                 }
             }
-            ACTION_START_MIC_PIPELINE -> startPipelineInternal(null)
             ACTION_STOP             -> tearDown()
             ACTION_SHOW_TRANSCRIPT  -> overlayController?.showTranscript(true)
             ACTION_HIDE_TRANSCRIPT  -> overlayController?.showTranscript(false)
@@ -106,11 +99,9 @@ class TranslationService : Service() {
         val overlay = OverlayController(applicationContext)
         overlay.listener = object : OverlayController.Listener {
             override fun onStartStop() {
-                if (audioCaptureManager == null && micCaptureManager == null) return
+                val cap = audioCaptureManager ?: return
                 overlay.isRunning = !overlay.isRunning
-                val gated = !overlay.isRunning
-                audioCaptureManager?.setGated(gated)
-                micCaptureManager?.setGated(gated)
+                cap.setGated(!overlay.isRunning)
             }
             override fun onToggleTranscript() {
                 overlay.showTranscript(!overlay.transcriptVisible)
@@ -121,23 +112,13 @@ class TranslationService : Service() {
         overlayController = overlay
     }
 
-    /**
-     * Khởi động pipeline chung cho cả 2 chiều.
-     * @param mediaProjection null = dùng mic (VI→ZH), non-null = dùng AudioPlaybackCapture (ZH→VI)
-     */
-    private fun startPipelineInternal(mediaProjection: MediaProjection?) {
+    private fun startPipeline(resultCode: Int, resultData: Intent) {
         activeDirection = DirectionPrefs.get(this)
         val dir = activeDirection
-        val useMic = (mediaProjection == null)
         val dirLabel = if (dir == TranslationDirection.ZH_TO_VI) "ZH→VI" else "VI→ZH"
-        val inputLabel = if (useMic) "🎤 mic" else "🎵 game audio"
 
-        if (!useMic) {
-            upgradeForegroundForMediaProjection("⬇️ Đang tải model $dirLabel...")
-        } else {
-            updateNotification("⬇️ Đang tải model $dirLabel...")
-        }
-        sendStatus("⬇️ Đang tải model dịch $dirLabel ($inputLabel)...")
+        upgradeForegroundForMediaProjection("⬇️ Đang tải model dịch $dirLabel...")
+        sendStatus("⬇️ Đang tải model dịch $dirLabel...")
 
         overlayController?.srcFlag = dir.srcFlag
         overlayController?.tgtFlag = dir.tgtFlag
@@ -166,14 +147,12 @@ class TranslationService : Service() {
                         return@launch
                     }
 
-                    // Tạo audio source theo chế độ
-                    if (useMic) {
-                        micCaptureManager = MicCaptureManager()
-                    } else {
-                        audioCaptureManager = AudioCaptureManager(mediaProjection!!)
-                    }
+                    val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                    val mediaProjection = projectionManager.getMediaProjection(resultCode, resultData)
+                    val capture = AudioCaptureManager(mediaProjection)
+                    audioCaptureManager = capture
 
-                    sendStatus("✅ Model STT loaded — bắt đầu lắng nghe ($inputLabel)...")
+                    sendStatus("✅ Model STT loaded — bắt đầu capture...")
 
                     var audioChunks = 0
                     var silentChunks = 0
@@ -194,8 +173,7 @@ class TranslationService : Service() {
                         }
                     }
 
-                    // Callback dùng chung cho cả mic và capture
-                    val onAudioData: (ByteArray, Int) -> Unit = { buffer, bytesRead ->
+                    capture.listener = AudioCaptureManager.Listener { buffer, bytesRead ->
                         voskTranscriber?.feedAudio(buffer, bytesRead)
                         audioChunks++
 
@@ -218,11 +196,9 @@ class TranslationService : Service() {
                             val silentPct = if (audioChunks > 0) silentChunks * 100 / audioChunks else 100
                             val diagMsg = when {
                                 silentPct > 95 ->
-                                    if (useMic) "🎤 Chưa nghe thấy gì (peak RMS=$peakRms) — nói to vào mic."
-                                    else        "⚠️ Không nhận được audio (peak RMS=$peakRms) — thử VLC/Google Translate TTS."
+                                    "⚠️ Không nhận được audio (peak RMS=$peakRms) — app đang block. Thử VLC hoặc file manager phát MP3."
                                 peakRms < 200 ->
-                                    if (useMic) "🎤 Giọng nhỏ quá (peak RMS=$peakRms) — nói gần mic hơn."
-                                    else        "🎙️ Audio rất nhỏ (peak RMS=$peakRms) — tăng âm lượng app nguồn."
+                                    "🎙️ Audio rất nhỏ (peak RMS=$peakRms, $silentPct% silence) — tăng âm lượng app nguồn."
                                 else ->
                                     "🎙️ Đang nghe... (peak RMS=$peakRms, $silentPct% silence)"
                             }
@@ -231,15 +207,12 @@ class TranslationService : Service() {
                         }
                     }
 
-                    audioCaptureManager?.listener = AudioCaptureManager.Listener { b, n -> onAudioData(b, n) }
-                    micCaptureManager?.listener   = MicCaptureManager.Listener   { b, n -> onAudioData(b, n) }
-
                     try {
-                        audioCaptureManager?.start() ?: micCaptureManager?.start()
+                        capture.start()
                         overlayController?.isRunning = true
                         val canTranslate = translatorManager?.isReady == true
                         val readyMsg = if (canTranslate)
-                            "✅ Sẵn sàng! Đang nhận dạng + dịch ($dirLabel $inputLabel)..."
+                            "✅ Sẵn sàng! Đang nhận dạng + dịch ($dirLabel)..."
                         else
                             "⚠️ Đang nhận dạng (chỉ hiện chữ, không có bản dịch)"
                         sendStatus(readyMsg)
@@ -277,13 +250,11 @@ class TranslationService : Service() {
 
     private fun tearDown() {
         audioCaptureManager?.stop()
-        micCaptureManager?.stop()
         voskTranscriber?.release()
         translatorManager?.close()
         ttsManager?.shutdown()
         overlayController?.hide()
         audioCaptureManager = null
-        micCaptureManager = null
         voskTranscriber = null
         translatorManager = null
         ttsManager = null
