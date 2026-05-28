@@ -41,7 +41,68 @@ android {
         pickFirst 'lib/armeabi-v7a/libc++_shared.so'
         pickFirst 'lib/arm64-v8a/libc++_shared.so'
     }
+    // Prevent AAPT from re-compressing already-compressed model archives
+    aaptOptions {
+        noCompress "zip", "bz2"
+    }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pre-bundle all 4 model archives into assets/models/ at build time so the
+// installed APK needs NO internet download. Skips files already present.
+// ─────────────────────────────────────────────────────────────────────────────
+task downloadBundledModels {
+    doLast {
+        def modelsDir = file("src/main/assets/models")
+        modelsDir.mkdirs()
+
+        def models = [
+            ["vosk-model-small-cn-0.22.zip",
+             "https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip"],
+            ["vosk-model-vn-0.4.zip",
+             "https://alphacephei.com/vosk/models/vosk-model-vn-0.4.zip"],
+            ["vits-piper-vi_VN-vais1000-medium.tar.bz2",
+             "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-vi_VN-vais1000-medium.tar.bz2"],
+            ["vits-zh-hf-fanchen-C.tar.bz2",
+             "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-zh-hf-fanchen-C.tar.bz2"]
+        ]
+
+        models.each { entry ->
+            def filename = entry[0]
+            def urlStr   = entry[1]
+            def dest     = new File(modelsDir, filename)
+
+            if (dest.exists()) {
+                println "  [skip] ${filename} (${dest.length() / 1048576}MB already bundled)"
+                return
+            }
+
+            println "  [download] ${filename} ..."
+            def currentUrl = urlStr
+            def done = false
+            for (int i = 0; i < 10 && !done; i++) {
+                def conn = (java.net.HttpURLConnection) new URL(currentUrl).openConnection()
+                conn.instanceFollowRedirects = false
+                conn.connect()
+                def code = conn.responseCode
+                if (code >= 300 && code < 400) {
+                    currentUrl = conn.getHeaderField('Location')
+                    conn.disconnect()
+                } else {
+                    dest.withOutputStream { out ->
+                        conn.inputStream.withStream { inp -> out << inp }
+                    }
+                    conn.disconnect()
+                    done = true
+                }
+            }
+            if (done) println "  [done]  ${filename} (${dest.length() / 1048576}MB)"
+            else throw new GradleException("Too many redirects for: ${urlStr}")
+        }
+    }
+}
+
+preBuild.dependsOn(downloadBundledModels)
 
 dependencies {
     // sherpa-onnx offline TTS engine — AAR downloaded in CI (app/libs/*.aar)

@@ -20,7 +20,7 @@ enum class TranslationDirection(
         ttsModelUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-vi_VN-vais1000-medium.tar.bz2",
         mlKitSrc = TranslateLanguage.CHINESE,
         mlKitTgt = TranslateLanguage.VIETNAMESE,
-        srcFlag = "🇨🇳", tgtFlag = "🇻🇳"
+        srcFlag = "中文", tgtFlag = "Việt"
     ),
     VI_TO_ZH(
         sttModelDir = "vosk-model-vn-0.4",
@@ -29,7 +29,7 @@ enum class TranslationDirection(
         ttsModelUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-zh-hf-fanchen-C.tar.bz2",
         mlKitSrc = TranslateLanguage.VIETNAMESE,
         mlKitTgt = TranslateLanguage.CHINESE,
-        srcFlag = "🇻🇳", tgtFlag = "🇨🇳"
+        srcFlag = "Việt", tgtFlag = "中文"
     );
 }
 

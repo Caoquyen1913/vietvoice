@@ -38,14 +38,23 @@ object ModelDownloader {
                 val zipFile = File(context.filesDir, "models_cache/${dir.sttModelDir}.zip")
                 zipFile.parentFile?.mkdirs()
 
-                downloadFile(dir.sttModelUrl, zipFile) { p ->
-                    CoroutineScope(Dispatchers.Main).launch { onProgress(p, null) }
+                val assetPath = "models/${dir.sttModelDir}.zip"
+                if (isAssetAvailable(context, assetPath)) {
+                    Log.i(TAG, "Extracting STT from bundled asset: $assetPath")
+                    copyAssetToFile(context, assetPath, zipFile) { p ->
+                        CoroutineScope(Dispatchers.Main).launch { onProgress(p, null) }
+                    }
+                } else {
+                    Log.i(TAG, "Downloading STT from network: ${dir.sttModelUrl}")
+                    downloadFile(dir.sttModelUrl, zipFile) { p ->
+                        CoroutineScope(Dispatchers.Main).launch { onProgress(p, null) }
+                    }
                 }
                 extractZip(zipFile, modelsDir)
                 zipFile.delete()
                 withContext(Dispatchers.Main) { onProgress(100, null) }
             } catch (e: Exception) {
-                Log.e(TAG, "STT download failed (${dir.sttModelDir})", e)
+                Log.e(TAG, "STT install failed (${dir.sttModelDir})", e)
                 withContext(Dispatchers.Main) { onProgress(0, e) }
             }
         }
@@ -72,21 +81,61 @@ object ModelDownloader {
                 val archiveFile = File(context.filesDir, "models_cache/${dir.ttsModelDir}.tar.bz2")
                 archiveFile.parentFile?.mkdirs()
 
-                downloadFile(dir.ttsModelUrl, archiveFile) { p ->
-                    CoroutineScope(Dispatchers.Main).launch { onProgress(p, null) }
+                val assetPath = "models/${dir.ttsModelDir}.tar.bz2"
+                if (isAssetAvailable(context, assetPath)) {
+                    Log.i(TAG, "Extracting TTS from bundled asset: $assetPath")
+                    copyAssetToFile(context, assetPath, archiveFile) { p ->
+                        CoroutineScope(Dispatchers.Main).launch { onProgress(p, null) }
+                    }
+                } else {
+                    Log.i(TAG, "Downloading TTS from network: ${dir.ttsModelUrl}")
+                    downloadFile(dir.ttsModelUrl, archiveFile) { p ->
+                        CoroutineScope(Dispatchers.Main).launch { onProgress(p, null) }
+                    }
                 }
                 withContext(Dispatchers.Main) { onProgress(97, null) }
                 extractTarBz2(archiveFile, modelsDir)
                 archiveFile.delete()
                 withContext(Dispatchers.Main) { onProgress(100, null) }
             } catch (e: Exception) {
-                Log.e(TAG, "TTS download failed (${dir.ttsModelDir})", e)
+                Log.e(TAG, "TTS install failed (${dir.ttsModelDir})", e)
                 withContext(Dispatchers.Main) { onProgress(0, e) }
             }
         }
     }
 
-    // --- Shared helpers ---
+    // --- Asset helpers ---
+    // Assets are stored uncompressed (aaptOptions { noCompress "zip","bz2" }), so
+    // openFd() works and gives the real file size for progress tracking.
+
+    private fun isAssetAvailable(ctx: Context, path: String): Boolean =
+        try { ctx.assets.open(path).close(); true } catch (_: Exception) { false }
+
+    private fun copyAssetToFile(
+        ctx: Context,
+        assetPath: String,
+        dest: File,
+        onProgress: (Int) -> Unit
+    ) {
+        val afd = ctx.assets.openFd(assetPath)
+        val totalBytes = afd.length
+        afd.createInputStream().use { inp ->
+            dest.outputStream().use { out ->
+                val buf = ByteArray(8192)
+                var copied = 0L
+                var n = inp.read(buf)
+                while (n >= 0) {
+                    out.write(buf, 0, n)
+                    copied += n
+                    if (totalBytes > 0) onProgress((copied * 95 / totalBytes).toInt())
+                    n = inp.read(buf)
+                }
+            }
+        }
+        afd.close()
+    }
+
+    // --- Network helpers ---
 
     private fun downloadFile(url: String, dest: File, onProgress: (Int) -> Unit) {
         val connection = (URL(url).openConnection() as HttpURLConnection).also { it.connect() }
@@ -106,6 +155,8 @@ object ModelDownloader {
         }
         connection.disconnect()
     }
+
+    // --- Extraction helpers ---
 
     private fun extractZip(zipFile: File, targetDir: File) {
         ZipInputStream(zipFile.inputStream()).use { zip ->

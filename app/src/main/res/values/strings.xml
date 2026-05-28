@@ -3,8 +3,8 @@
     <string name="app_name">VietVoice</string>
 
     <!-- Direction selector -->
-    <string name="dir_zh_to_vi">🇨🇳 → 🇻🇳</string>
-    <string name="dir_vi_to_zh">🇻🇳 → 🇨🇳</string>
+    <string name="dir_zh_to_vi">中文 → Việt</string>
+    <string name="dir_vi_to_zh">Việt → 中文</string>
 
     <!-- Language toggle -->
     <string name="btn_lang_vi">Tiếng Việt</string>
@@ -46,10 +46,10 @@
     <string name="label_show_transcript">Hiển thị bảng transcript</string>
 
     <!-- Transcript hints (direction-dependent, set in code) -->
-    <string name="hint_original_zh">🇨🇳 Giọng tiếng Trung sẽ hiện ở đây…</string>
-    <string name="hint_original_vn">🇻🇳 Giọng tiếng Việt sẽ hiện ở đây…</string>
-    <string name="hint_translated_vi">🇻🇳 Bản dịch tiếng Việt…</string>
-    <string name="hint_translated_zh">🇨🇳 中文翻译…</string>
+    <string name="hint_original_zh">Tiếng Trung sẽ hiện ở đây…</string>
+    <string name="hint_original_vn">Tiếng Việt sẽ hiện ở đây…</string>
+    <string name="hint_translated_vi">Bản dịch tiếng Việt…</string>
+    <string name="hint_translated_zh">中文翻译…</string>
 
     <!-- Footer -->
     <string name="footer_hint">Nhấn giữ nút nổi để bật/tắt bảng transcript</string>

@@ -11,3 +11,4 @@
 *.aab
 app/build/
 app/libs/*.aar
+app/src/main/assets/models/

@@ -3,8 +3,8 @@
     <string name="app_name">VietVoice</string>
 
     <!-- Direction selector -->
-    <string name="dir_zh_to_vi">🇨🇳 → 🇻🇳</string>
-    <string name="dir_vi_to_zh">🇻🇳 → 🇨🇳</string>
+    <string name="dir_zh_to_vi">中文 → Việt</string>
+    <string name="dir_vi_to_zh">Việt → 中文</string>
 
     <!-- Language toggle -->
     <string name="btn_lang_vi">Tiếng Việt</string>
@@ -46,10 +46,10 @@
     <string name="label_show_transcript">显示翻译面板</string>
 
     <!-- Transcript hints -->
-    <string name="hint_original_zh">🇨🇳 中文语音将显示在这里…</string>
-    <string name="hint_original_vn">🇻🇳 越南语语音将显示在这里…</string>
-    <string name="hint_translated_vi">🇻🇳 越南语翻译…</string>
-    <string name="hint_translated_zh">🇨🇳 中文翻译…</string>
+    <string name="hint_original_zh">中文语音将显示在这里…</string>
+    <string name="hint_original_vn">越南语语音将显示在这里…</string>
+    <string name="hint_translated_vi">越南语翻译…</string>
+    <string name="hint_translated_zh">中文翻译…</string>
 
     <!-- Footer -->
     <string name="footer_hint">长按悬浮按钮可显示/隐藏翻译面板</string>
