@@ -63,4 +63,5 @@
     <string name="toast_stt_download_done">✅ 语音识别模型下载完成！</string>
     <string name="toast_tts_download_done">✅ 语音合成模型下载完成！</string>
     <string name="downloading_progress">正在下载：%d%%</string>
+    <string name="toast_all_models_ready">✅ 所有模型已就绪！</string>
 </resources>

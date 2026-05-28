@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var mediaProjectionManager: MediaProjectionManager
     private var isServiceRunning = false
+    private var isAutoDownloading = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -96,6 +97,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateModelStatus()
+        autoDownloadAllIfNeeded()
     }
 
     override fun onDestroy() {
@@ -210,6 +212,86 @@ class MainActivity : AppCompatActivity() {
             !sttOk           -> getString(R.string.status_need_stt)
             else             -> getString(R.string.status_need_tts)
         }
+    }
+
+    /**
+     * Tự động tải tất cả model còn thiếu khi mở app.
+     * Tải chiều đang chọn trước, rồi chiều còn lại.
+     * Sequential để tránh quá tải mạng/bộ nhớ.
+     */
+    private fun autoDownloadAllIfNeeded() {
+        if (isAutoDownloading) return
+
+        val currentDir = DirectionPrefs.get(this)
+        val otherDir   = if (currentDir == TranslationDirection.ZH_TO_VI)
+                             TranslationDirection.VI_TO_ZH else TranslationDirection.ZH_TO_VI
+
+        // Build queue: chiều hiện tại trước (STT→TTS), rồi chiều kia
+        val queue = mutableListOf<Pair<TranslationDirection, Boolean>>() // (dir, isStt)
+        if (!ModelDownloader.isSttModelDownloaded(this, currentDir)) queue += Pair(currentDir, true)
+        if (!ModelDownloader.isTtsModelDownloaded(this, currentDir)) queue += Pair(currentDir, false)
+        if (!ModelDownloader.isSttModelDownloaded(this, otherDir))   queue += Pair(otherDir,   true)
+        if (!ModelDownloader.isTtsModelDownloaded(this, otherDir))   queue += Pair(otherDir,   false)
+
+        if (queue.isEmpty()) return
+
+        isAutoDownloading = true
+        binding.btnDownloadModel.isEnabled = false
+        binding.btnDownloadTts.isEnabled   = false
+        binding.btnStartStop.isEnabled     = false
+        binding.progressBar.visibility     = View.VISIBLE
+
+        fun labelOf(dir: TranslationDirection, isStt: Boolean) = when {
+            isStt  && dir == TranslationDirection.ZH_TO_VI -> "STT 🇨🇳 (~42MB)"
+            isStt  && dir == TranslationDirection.VI_TO_ZH -> "STT 🇻🇳 (~74MB)"
+            !isStt && dir == TranslationDirection.ZH_TO_VI -> "TTS 🇻🇳 (~67MB)"
+            else                                           -> "TTS 🇨🇳 (~119MB)"
+        }
+
+        fun downloadAt(index: Int) {
+            if (index >= queue.size) {
+                // Xong tất cả
+                isAutoDownloading = false
+                binding.progressBar.visibility = View.GONE
+                updateModelStatus()
+                toast(getString(R.string.toast_all_models_ready))
+                return
+            }
+
+            val (dir, isStt) = queue[index]
+            val label  = labelOf(dir, isStt)
+            val current = index + 1
+            val total   = queue.size
+
+            binding.progressBar.progress = 0
+            binding.tvStatus.text = "⬇️ $label ($current/$total)..."
+
+            val cb: (Int, Exception?) -> Unit = { progress, error ->
+                runOnUiThread {
+                    when {
+                        error != null -> {
+                            binding.tvStatus.text = "⚠️ Lỗi tải $label — bỏ qua, thử sau."
+                            binding.progressBar.visibility = View.GONE
+                            isAutoDownloading = false
+                            updateModelStatus()
+                        }
+                        progress == 100 -> {
+                            binding.progressBar.progress = 100
+                            downloadAt(index + 1)
+                        }
+                        else -> {
+                            binding.progressBar.progress = progress
+                            binding.tvStatus.text = "⬇️ $label ($current/$total) — $progress%"
+                        }
+                    }
+                }
+            }
+
+            if (isStt) ModelDownloader.downloadStt(this, dir, cb)
+            else       ModelDownloader.downloadTts(this, dir, cb)
+        }
+
+        downloadAt(0)
     }
 
     private fun startSttDownload() {

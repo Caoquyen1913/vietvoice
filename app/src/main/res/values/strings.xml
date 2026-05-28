@@ -63,4 +63,5 @@
     <string name="toast_stt_download_done">✅ Tải model nhận dạng xong!</string>
     <string name="toast_tts_download_done">✅ Tải giọng đọc xong!</string>
     <string name="downloading_progress">Đang tải: %d%%</string>
+    <string name="toast_all_models_ready">✅ Tất cả model đã sẵn sàng!</string>
 </resources>
