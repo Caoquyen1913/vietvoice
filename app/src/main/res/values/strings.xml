@@ -28,7 +28,7 @@
     <string name="status_tts_vi_ready">✅ Giọng đọc tiếng Việt đã sẵn sàng</string>
     <string name="status_tts_zh_ready">✅ Giọng đọc tiếng Trung đã sẵn sàng</string>
     <string name="status_stt_zh_not_ready">⚠️ Chưa tải (~42MB)</string>
-    <string name="status_stt_vn_not_ready">⚠️ Chưa tải (~32MB)</string>
+    <string name="status_stt_vn_not_ready">⚠️ Chưa tải (~74MB)</string>
     <string name="status_tts_vi_not_ready">⚠️ Chưa tải (~67MB)</string>
     <string name="status_tts_zh_not_ready">⚠️ Chưa tải (~119MB)</string>
 

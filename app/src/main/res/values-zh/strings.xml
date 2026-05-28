@@ -28,7 +28,7 @@
     <string name="status_tts_vi_ready">✅ 越南语语音模型就绪</string>
     <string name="status_tts_zh_ready">✅ 中文语音模型就绪</string>
     <string name="status_stt_zh_not_ready">⚠️ 未下载（约42MB）</string>
-    <string name="status_stt_vn_not_ready">⚠️ 未下载（约32MB）</string>
+    <string name="status_stt_vn_not_ready">⚠️ 未下载（约74MB）</string>
     <string name="status_tts_vi_not_ready">⚠️ 未下载（约67MB）</string>
     <string name="status_tts_zh_not_ready">⚠️ 未下载（约119MB）</string>
 

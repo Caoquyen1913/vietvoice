@@ -23,8 +23,8 @@ enum class TranslationDirection(
         srcFlag = "🇨🇳", tgtFlag = "🇻🇳"
     ),
     VI_TO_ZH(
-        sttModelDir = "vosk-model-small-vn-0.4",
-        sttModelUrl = "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip",
+        sttModelDir = "vosk-model-vn-0.4",
+        sttModelUrl = "https://alphacephei.com/vosk/models/vosk-model-vn-0.4.zip",
         ttsModelDir = "vits-zh-hf-fanchen-C",
         ttsModelUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-zh-hf-fanchen-C.tar.bz2",
         mlKitSrc = TranslateLanguage.VIETNAMESE,
